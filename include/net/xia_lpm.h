@@ -22,7 +22,7 @@ static inline bool valid_prefix(struct xia_fib_config *cfg)
  *	Exported by tree_fib.c
  */
 
-extern const struct xia_ppal_rt_iops xia_ppal_tree_rt_iops;
+extern const struct xia_ppal_rt_iops xia_ppal_popt_rt_iops;
 
 /* Find the first predecessor node above @fxid that also has an fxid.
  *
