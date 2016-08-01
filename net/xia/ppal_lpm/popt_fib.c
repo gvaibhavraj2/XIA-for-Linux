@@ -2173,6 +2173,18 @@ static inline struct popt_fib_xid_table *xtbl_txtbl(struct fib_xid_table *xtbl)
 {
 	return (struct popt_fib_xid_table *)xtbl->fxt_data;
 }
+static XID xid_XID(const u8 *fx_xid){
+	XID addr;	
+	addr.prefix1 = (u32)((fx_xid)[0]<<24+(fx_xid)[1]<<16+(fx_xid)[2]<<8+(fx_xid)[3]);
+	__uint128_t prefix = (__uint128_t)0;
+	int i;
+	for( i=4; i<20; i++)
+	{
+		prefix	+= fx_xid[i]<<(20-i-1)*8;
+	}	
+	addr.prefix2 = prefix;
+}
+
 
 static void popt_xtbl_death_work(struct work_struct *work);
 
@@ -2329,15 +2341,17 @@ static void popt_fib_unlock(struct fib_xid_table *xtbl, void *parg)
 static struct fib_xid *popt_fxid_find_rcu(struct fib_xid_table *xtbl,
 					  const u8 *xid)
 {
-	return NULL;
+	struct popt_fib_xid_table *txtbl = xtbl_txtbl(xtbl);
+	XID addr = xid_XID(xid);
+	struct fib_xid* ret = (struct fib_xid*)poptrie160_rib_lookup(txtbl , addr);
+	return ret;
 }
 
 /* No extra information is needed, so @parg is empty. */
 static struct fib_xid *popt_fxid_find_lock(void *parg,
 	struct fib_xid_table *xtbl, const u8 *xid)
 {
-	/* Do longest prefix matching matching. */
-	return NULL;
+	return popt_fxid_find_rcu(xtbl,xid);
 }
 
 
@@ -2356,15 +2370,7 @@ static int popt_fxid_add_locked(void *parg, struct fib_xid_table *xtbl,
 {
 	struct popt_fib_xid_table *txtbl = xtbl_txtbl(xtbl);
 	int len_in_bits = (fxid->fx_entry_type);
-	XID addr;	
-	addr.prefix1 = (u32)((fxid->fx_xid)[0]<<24+(fxid->fx_xid)[1]<<16+(fxid->fx_xid)[2]<<8+(fxid->fx_xid)[3]);
-	__uint128_t prefix = (__uint128_t)0;
-	int i;
-	for( i=4; i<20; i++)
-	{
-		prefix	+= fxid->fx_xid[i]<<(20-i-1)*8;
-	}	
-	addr.prefix2 = prefix;
+	XID addr = xid_XID(fxid->fx_xid);	
 	int ret = poptrie160_route_add(txtbl, addr, len_in_bits, (void*)fxid);
 	return ret;
 }
@@ -2444,7 +2450,12 @@ static int popt_xtbl_dump_rcu(struct fib_xid_table *xtbl,
 {	
 	/*struct popt_fib_xid_table *txtbl = xtbl_txtbl(xtbl);
 	int rc = 0;
-	read_lock(&txtbl->writers_lock);*/
+	read_lock(&txtbl->writers_lock);
+	int no_of_entries = sizeof(txtbl->fib.entries)/sizeof(txtbl->fib.entries[0]);
+	int i;
+	for(i =0 ; i<no_of_entries ; i++)
+	{
+	}*/
 	return 0;
 }
 
