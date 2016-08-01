@@ -2448,15 +2448,23 @@ static int popt_xtbl_dump_rcu(struct fib_xid_table *xtbl,
 			      struct xip_ppal_ctx *ctx, struct sk_buff *skb,
 			      struct netlink_callback *cb)
 {	
-	/*struct popt_fib_xid_table *txtbl = xtbl_txtbl(xtbl);
+	struct popt_fib_xid_table *txtbl = xtbl_txtbl(xtbl);
 	int rc = 0;
 	read_lock(&txtbl->writers_lock);
 	int no_of_entries = sizeof(txtbl->fib.entries)/sizeof(txtbl->fib.entries[0]);
 	int i;
 	for(i =0 ; i<no_of_entries ; i++)
 	{
-	}*/
-	return 0;
+		
+		struct fib_xid *fxid = (struct fib_xid*)txtbl->fib.entries[i];
+		rc = xtbl->all_eops[fxid->fx_table_id].
+				dump_fxid(fxid, xtbl, ctx, skb, cb);
+			if (rc < 0)
+				goto out;
+	}
+out:
+	read_unlock(&txtbl->writers_lock);
+	return rc;
 }
 
 struct fib_xid *popt_fib_get_pred_locked(struct fib_xid *fxid)
