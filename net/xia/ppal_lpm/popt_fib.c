@@ -2389,12 +2389,18 @@ static int popt_fxid_add(struct fib_xid_table *xtbl, struct fib_xid *fxid)
 static void popt_fxid_rm_locked(void *parg, struct fib_xid_table *xtbl,
 				struct fib_xid *fxid)
 {
-	printk(KERN_ALERT "Inside rm");
+	printk(KERN_ALERT "Inside rm locked");
+	struct tree_fib_xid_table *txtbl = xtbl_txtbl(xtbl);
+	XID addr = xid_XID(fxid->fx_xid); 
+	poptrie160_route_del(txtbl , addr , 160);
 }
 
 static void popt_fxid_rm(struct fib_xid_table *xtbl, struct fib_xid *fxid)
 {
 	printk(KERN_ALERT "Inside rm");
+	write_lock(&xtbl_txtbl(xtbl)->writers_lock);
+	popt_fxid_rm_locked(NULL, xtbl, fxid);
+	write_unlock(&xtbl_txtbl(xtbl)->writers_lock);
 }
 
 /* tree_xid_rm() removes the entry with the longest matching prefix,
