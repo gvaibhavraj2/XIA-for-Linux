@@ -36,7 +36,7 @@ int tree_fib_newroute_lock(struct fib_xid *new_fxid,
 	struct fib_xid_table *xtbl, struct xia_fib_config *cfg,
 	int *padded);
 
-int tree_fib_delroute(struct xip_ppal_ctx *ctx, struct fib_xid_table *xtbl,
+int popt_fib_delroute(struct xip_ppal_ctx *ctx, struct fib_xid_table *xtbl,
 	struct xia_fib_config *cfg);
 
 int popt_fib_mrd_dump(struct fib_xid *fxid, struct fib_xid_table *xtbl,

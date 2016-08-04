@@ -222,14 +222,14 @@ static int main_newroute(struct xip_ppal_ctx *ctx, struct fib_xid_table *xtbl,
 static const xia_ppal_all_rt_eops_t lpm_all_rt_eops = {
 	[XRTABLE_LOCAL_INDEX] = {
 		.newroute = local_newroute,
-		.delroute = tree_fib_delroute,
+		.delroute = popt_fib_delroute,
 		.dump_fxid = local_dump_lpm,
 		.free_fxid = local_free_lpm,
 	},
 
 	[XRTABLE_MAIN_INDEX] = {
 		.newroute = main_newroute,
-		.delroute = tree_fib_delroute,
+		.delroute = popt_fib_delroute,
 		.dump_fxid = popt_fib_mrd_dump,
 		.free_fxid = fib_mrd_free,
 	},

@@ -2403,6 +2403,7 @@ static void popt_xtbl_death_work(struct work_struct *work)
 /* No extra information is needed, so @parg is empty. */
 static void popt_fib_unlock(struct fib_xid_table *xtbl, void *parg)
 {
+	write_unlock(&xtbl_txtbl(xtbl)->writers_lock);
 	printk(KERN_ALERT "Inside unlock");
 }
 
@@ -2507,14 +2508,42 @@ static int popt_fib_newroute(struct fib_xid *new_fxid,
 	return 0;
 }
 
-/* tree_fib_delroute() differs from all_fib_delroute() because its lookup
+/* popt_fib_delroute() differs from all_fib_delroute() because its lookup
  * function has the option of doing longest prefix or exact matching, and
  * all_fib_delroute() is not flexible enough to do that.
  */
 int popt_fib_delroute(struct xip_ppal_ctx *ctx, struct fib_xid_table *xtbl,
 		      struct xia_fib_config *cfg)
 {
+	
+	struct popt_fib_xid_table *txtbl = xtbl_txtbl(xtbl);
+	XID addr = xid_XID(cfg->xfc_dst->xid_id);
+	struct fib_xid *fxid;
+	int rc;
+
+	if (!valid_prefix(cfg))
+		return -EINVAL;
+
+	/* Do exact matching to find @fxid. */
+	fxid  = (struct fib_xid*)poptrie160_rib_lookup(txtbl , addr);
+	if (!fxid) {
+		rc = -ENOENT;
+		goto unlock;
+	}
+	if (fxid->fx_table_id != cfg->xfc_table) {
+		rc = -EINVAL;
+		goto unlock;
+	}
+
+	popt_fxid_rm_locked(NULL, xtbl, fxid);
+	popt_fib_unlock(xtbl, NULL);
+	fxid_free(xtbl, fxid);
 	return 0;
+
+unlock:
+	popt_fib_unlock(xtbl, NULL);
+	return rc;
+	
 }
 
 /* Dump all entries in tree. */
