@@ -53,7 +53,7 @@ static void newroute_flush_anchor_locked(struct fib_xid_table *xtbl,
 					 struct fib_xid *new_fxid,
 					 struct xip_deferred_negdep_flush *dnf)
 {
-	struct fib_xid *pred_fxid = tree_fib_get_pred_locked(new_fxid);
+	struct fib_xid *pred_fxid = popt_fib_get_pred_locked(xtbl , new_fxid);
 
 	if (!pred_fxid) {
 		lpm_rt_iops->fib_unlock(xtbl, NULL);
@@ -230,7 +230,7 @@ static const xia_ppal_all_rt_eops_t lpm_all_rt_eops = {
 	[XRTABLE_MAIN_INDEX] = {
 		.newroute = main_newroute,
 		.delroute = tree_fib_delroute,
-		.dump_fxid = tree_fib_mrd_dump,
+		.dump_fxid = popt_fib_mrd_dump,
 		.free_fxid = fib_mrd_free,
 	},
 };

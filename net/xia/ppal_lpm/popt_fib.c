@@ -195,7 +195,9 @@ _route_del_propagate(struct radix_node160 *, struct radix_node160 *,
 static u32
 _rib_lookup(struct radix_node160 *, XID, int, struct radix_node160 *);
 static void _release_radix160(struct radix_node160 *);
-
+static u32
+_rib_lookup_prefix(struct radix_node160 *node, XID addr, int depth, int height,
+            struct radix_node160 *en);
 /*
  * Bit scan
  */
@@ -1930,6 +1932,72 @@ _route_update(struct popt_fib_xid_table *poptrie, struct radix_node160 **node,
 	}
 }
 
+static u32
+_rib_lookup_prefix(struct radix_node160 *node, XID addr, int depth, int height,
+            struct radix_node160 *en)
+{
+    if ( NULL == node ) {
+        return 0;
+    }
+    if ( node->valid ) {
+        en = node;
+    }
+    if (depth == height) {
+	return en->nexthop;
+    }
+    int temp = 160-depth-1;
+    if(temp<128){
+            if(addr.prefix2 >> (temp) & 1){
+                        if ( NULL == node->right ) {
+                    if ( NULL != en ) {
+                        return en->nexthop;
+                    } else {
+                        return 0;
+                    }
+                } else {
+                    return _rib_lookup_prefix(node->right, addr, depth + 1, height, en);
+                }
+            }
+            else{
+                        if ( NULL == node->left ) {
+                    if ( NULL != en ) {
+                        return en->nexthop;
+                    } else {
+                        return 0;
+                    }
+                } else {
+                    return _rib_lookup_prefix(node->left, addr, depth + 1, height, en);
+                }
+            }
+            }
+    else{
+        if(addr.prefix1 >> (temp-160) & 1){
+                if ( NULL == node->right ) {
+                if ( NULL != en ) {
+                    return en->nexthop;
+                } else {
+                    return 0;
+                }
+            } else {
+                return _rib_lookup_prefix(node->right, addr, depth + 1, height, en);
+            }
+            }
+        else{
+             if ( NULL == node->left ) {
+            if ( NULL != en ) {
+                return en->nexthop;
+            } else {
+                return 0;
+            }
+        } else {
+            return _rib_lookup_prefix(node->left, addr, depth + 1, height, en);
+        }
+        }    
+    }            
+   
+}
+
+
 /*
  * Delete a route
  */
@@ -2390,7 +2458,7 @@ static void popt_fxid_rm_locked(void *parg, struct fib_xid_table *xtbl,
 				struct fib_xid *fxid)
 {
 	printk(KERN_ALERT "Inside rm locked");
-	struct tree_fib_xid_table *txtbl = xtbl_txtbl(xtbl);
+	struct popt_fib_xid_table *txtbl = xtbl_txtbl(xtbl);
 	XID addr = xid_XID(fxid->fx_xid); 
 	poptrie160_route_del(txtbl , addr , 160);
 }
@@ -2473,9 +2541,16 @@ out:
 	return rc;
 }
 
-struct fib_xid *popt_fib_get_pred_locked(struct fib_xid *fxid)
+struct fib_xid *popt_fib_get_pred_locked(struct fib_xid_table *xtbl, struct fib_xid *fxid)
 {
-	return NULL;
+	
+	struct popt_fib_xid_table *txtbl = xtbl_txtbl(xtbl);	
+	read_lock(&txtbl->writers_lock);
+	XID addr = xid_XID(fxid->fx_xid);
+	int height = fxid->fx_entry_type;	
+	struct fib_xid* ret = (struct fib_xid*)txtbl->fib.entries[_rib_lookup_prefix(txtbl->radix, addr, 0, height, NULL)];
+	read_unlock(&txtbl->writers_lock);
+	return ret;
 }
 
 /* Main entries for LPM need to display the prefix length when dumped,
@@ -2485,7 +2560,50 @@ int popt_fib_mrd_dump(struct fib_xid *fxid, struct fib_xid_table *xtbl,
 		      struct xip_ppal_ctx *ctx, struct sk_buff *skb,
 		      struct netlink_callback *cb)
 {
-	return 0;	
+	struct nlmsghdr *nlh;
+	u32 portid = NETLINK_CB(cb->skb).portid;
+	u32 seq = cb->nlh->nlmsg_seq;
+	struct rtmsg *rtm;
+	struct fib_xid_redirect_main *mrd = fxid_mrd(fxid);
+	struct xia_xid dst;
+
+	nlh = nlmsg_put(skb, portid, seq, RTM_NEWROUTE, sizeof(*rtm),
+			NLM_F_MULTI);
+	if (nlh == NULL)
+		return -EMSGSIZE;
+
+	rtm = nlmsg_data(nlh);
+	rtm->rtm_family = AF_XIA;
+	rtm->rtm_dst_len = sizeof(struct xia_xid);
+	rtm->rtm_src_len = 0;
+	rtm->rtm_tos = 0; /* XIA doesn't have a tos. */
+	rtm->rtm_table = XRTABLE_MAIN_INDEX;
+	/* XXX One may want to vary here. */
+	rtm->rtm_protocol = RTPROT_UNSPEC;
+	/* XXX One may want to vary here. */
+	rtm->rtm_scope = RT_SCOPE_UNIVERSE;
+	rtm->rtm_type = RTN_UNICAST;
+	/* XXX One may want to put something here, like RTM_F_CLONED. */
+	rtm->rtm_flags = 0;
+
+	dst.xid_type = xtbl_ppalty(xtbl);
+	memmove(dst.xid_id, fxid->fx_xid, XIA_XID_MAX);
+
+	if (unlikely(nla_put(skb, RTA_DST, sizeof(dst), &dst) ||
+		     nla_put(skb, RTA_GATEWAY, sizeof(mrd->gw), &mrd->gw)))
+		goto nla_put_failure;
+
+	/* Add prefix length to packet. */
+	if (unlikely(nla_put(skb, RTA_PROTOINFO, sizeof(fxid->fx_entry_type),
+			     &(fxid->fx_entry_type))))
+		goto nla_put_failure;
+
+	nlmsg_end(skb, nlh);
+	return 0;
+
+nla_put_failure:
+	nlmsg_cancel(skb, nlh);
+	return -EMSGSIZE;	
 }
 
 const struct xia_ppal_rt_iops xia_ppal_popt_rt_iops = {
