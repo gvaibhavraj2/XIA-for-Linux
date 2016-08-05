@@ -16,7 +16,7 @@ typedef uint64_t u64;
 #define POPTRIE_S               18
 #define POPTRIE_INIT_FIB_SIZE   4096
 
-#define popcnt(v)               __builtin_popcountll(v)
+#define popcnt(v)               hweight64(v)
 #define EXT_NH(n)       ((n)->ext ? (n)->ext->nexthop : 0)
 
 typedef struct uint160_t{
