@@ -2381,23 +2381,9 @@ static void popt_fxid_init(struct fib_xid *fxid, int table_id, int entry_type)
 static void popt_xtbl_death_work(struct work_struct *work)
 {
 	printk(KERN_ALERT "Inside deathWork");
-	/*struct fib_xid_table *xtbl = container_of(work, struct fib_xid_table,
+	struct fib_xid_table *xtbl = container_of(work, struct fib_xid_table,
 		fxt_death_work);
-	struct tree_fib_xid_table *txtbl = xtbl_txtbl(xtbl);
-
-	int c = atomic_read(&xtbl->fxt_count);
-	int rm_count = destroy_subtree(xtbl, txtbl->root);
-
-	* It doesn't return an error here because there's nothing
-	 * the caller can do about this error/bug.
-	
-	if (c != rm_count) {
-		pr_err("While freeing XID table of principal %x, %i entries were found, whereas %i are counted! Ignoring it, but it's a serious bug!\n",
-		       __be32_to_cpu(xtbl->fxt_ppal_type), rm_count, c);
-		       dump_stack();
-	}
-
-	kfree(xtbl);*/
+	kfree(xtbl);
 }
 
 /* No extra information is needed, so @parg is empty. */
@@ -2430,7 +2416,24 @@ static int popt_iterate_xids(struct fib_xid_table *xtbl,
 						    const void *arg),
 			     const void *arg)
 {
-	return 0;
+	struct popt_fib_xid_table *txtbl = xtbl_txtbl(xtbl);
+	int rc = 0;
+
+	read_lock(&txtbl->writers_lock);
+	int i;
+	for( i = 0 ; i < txtbl->fib.n ; i++)
+	{	
+		struct fib_xid* cur= (struct fib_xid*)txtbl->fib.entries[i];
+	
+		XID addr = xid_XID(cur);
+		rc = locked_callback(xtbl, cur, arg);
+			if (rc)
+				goto out;
+	}
+	
+out:
+	read_unlock(&txtbl->writers_lock);
+	return rc;
 }
 
 /* No extra information is needed, so @parg is empty. */
@@ -2485,16 +2488,60 @@ static void popt_fxid_replace_locked(struct fib_xid_table *xtbl,
 				     struct fib_xid *new_fxid)
 {
 	printk(KERN_ALERT "Inside replace");
+	//Replacement by deleting the previous entry and adding the new 
+	struct popt_fib_xid_table *txtbl = xtbl_txtbl(xtbl);
+	XID addr_old = xid_XID(old_fxid->fx_xid);
+	XID addr_new = xid_XID(new_fxid->fx_xid);
+	poptrie160_route_del(txtbl , addr_old , old_fxid->fx_entry_type);
+	poptrie160_route_add(txtbl, addr_new, new_fxid->fx_entry_type, (void*)new_fxid);
+	
+	
 }
 
 int popt_fib_newroute_lock(struct fib_xid *new_fxid,
 			   struct fib_xid_table *xtbl,
 			   struct xia_fib_config *cfg, int *padded)
 {
+	struct fib_xid *cur_fxid;
+	struct popt_fib_xid_table *txtbl = xtbl_txtbl(xtbl);
+	
+	const u8 *id;
+
+	if (padded)
+		*padded = 0;
+
+	/* Acquire lock and do exact matching to find @cur_fxid. */
+	id = cfg->xfc_dst->xid_id;
+	XID addr = xid_XID(id);
+	cur_fxid = (struct fib_xid*)poptrie160_rib_lookup(txtbl , addr);
+
+	if (cur_fxid) {
+		if ((cfg->xfc_nlflags & NLM_F_EXCL) ||
+		    !(cfg->xfc_nlflags & NLM_F_REPLACE))
+			return -EEXIST;
+
+		if (cur_fxid->fx_table_id != new_fxid->fx_table_id)
+			return -EINVAL;
+
+		
+		popt_fxid_replace_locked(xtbl, cur_fxid, new_fxid);
+		fxid_free(xtbl, cur_fxid);
+		return 0;
+	}
+
+	if (!(cfg->xfc_nlflags & NLM_F_CREATE))
+		return -ENOENT;
+
+	/* Add new entry. */
+	BUG_ON(popt_fxid_add_locked(NULL, xtbl, new_fxid));
+
+	if (padded)
+		*padded = 1;
 	return 0;
+
 }
 
-/* tree_fib_newroute() differs from all_fib_newroute() because its lookup
+/* popt_fib_newroute() differs from all_fib_newroute() because its lookup
  * function has the option of doing longest prefix or exact matching, and
  * all_fib_newroute() is not flexible enough to do that.
  *
@@ -2505,7 +2552,9 @@ static int popt_fib_newroute(struct fib_xid *new_fxid,
 			     struct fib_xid_table *xtbl,
 			     struct xia_fib_config *cfg, int *padded)
 {
-	return 0;
+	int rc = popt_fib_newroute_lock(new_fxid, xtbl, cfg, padded);
+	popt_fib_unlock(xtbl, NULL);
+	return rc;
 }
 
 /* popt_fib_delroute() differs from all_fib_delroute() because its lookup

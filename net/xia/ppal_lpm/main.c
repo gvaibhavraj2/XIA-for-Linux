@@ -110,7 +110,7 @@ static int local_newroute(struct xip_ppal_ctx *ctx,
 	 * we can add an entry and find the appropriate predecessor
 	 * atomically to flush the appropriate anchor.
 	 */
-	rc = tree_fib_newroute_lock(&new_llpm->common, xtbl, cfg, NULL);
+	rc = popt_fib_newroute_lock(&new_llpm->common, xtbl, cfg, NULL);
 	if (rc) {
 		fib_free_dnf(dnf);
 		fxid_free_norcu(xtbl, &new_llpm->common);
@@ -207,7 +207,7 @@ static int main_newroute(struct xip_ppal_ctx *ctx, struct fib_xid_table *xtbl,
 	 * we can add an entry and find the appropriate predecessor
 	 * atomically to flush the appropriate anchor.
 	 */
-	rc = tree_fib_newroute_lock(&new_mrd->common, xtbl, cfg, NULL);
+	rc = popt_fib_newroute_lock(&new_mrd->common, xtbl, cfg, NULL);
 	if (rc) {
 		fib_free_dnf(dnf);
 		fxid_free_norcu(xtbl, &new_mrd->common);

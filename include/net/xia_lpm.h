@@ -32,7 +32,7 @@ extern const struct xia_ppal_rt_iops xia_ppal_popt_rt_iops;
  */
 struct fib_xid *popt_fib_get_pred_locked(struct fib_xid_table *xtbl, struct fib_xid *fxid);
 
-int tree_fib_newroute_lock(struct fib_xid *new_fxid,
+int popt_fib_newroute_lock(struct fib_xid *new_fxid,
 	struct fib_xid_table *xtbl, struct xia_fib_config *cfg,
 	int *padded);
 
