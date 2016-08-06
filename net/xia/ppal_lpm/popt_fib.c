@@ -2374,6 +2374,17 @@ static void *popt_fxid_ppal_alloc(size_t ppal_entry_size, gfp_t flags)
 static void popt_fxid_init(struct fib_xid *fxid, int table_id, int entry_type)
 {
 	printk(KERN_ALERT "Inside fxid_init");
+	printk("TableID %d",table_id);
+	printk("entry %d", entry_type);
+	BUILD_BUG_ON(XRTABLE_MAX_INDEX >= 0x100);
+	BUG_ON(table_id >= XRTABLE_MAX_INDEX);
+	fxid->fx_table_id = table_id;
+
+	BUILD_BUG_ON(XIA_LPM_MAX_PREFIX_LEN >= 0x100);
+	BUG_ON(entry_type > XIA_LPM_MAX_PREFIX_LEN);
+	fxid->fx_entry_type = entry_type;
+
+	fxid->dead.xtbl = NULL;
 }
 
 
@@ -2440,16 +2451,20 @@ out:
 static int popt_fxid_add_locked(void *parg, struct fib_xid_table *xtbl,
 				struct fib_xid *fxid)
 {
+	printk(KERN_ALERT "Inside add locked");	
 	struct popt_fib_xid_table *txtbl = xtbl_txtbl(xtbl);
 	int len_in_bits = (fxid->fx_entry_type);
+	printk("Length %d",len_in_bits);
 	XID addr = xid_XID(fxid->fx_xid);	
 	int ret = poptrie160_route_add(txtbl, addr, len_in_bits, (void*)fxid);
+	printk("Return Value %d", ret);
 	return ret;
 }
 
 static int popt_fxid_add(struct fib_xid_table *xtbl, struct fib_xid *fxid)
 {	
 	int rc;
+	printk(KERN_ALERT "Inside add function");
 	write_lock(&xtbl_txtbl(xtbl)->writers_lock);
 	rc = popt_fxid_add_locked(NULL, xtbl, fxid);
 	write_unlock(&xtbl_txtbl(xtbl)->writers_lock);
@@ -2600,15 +2615,20 @@ static int popt_xtbl_dump_rcu(struct fib_xid_table *xtbl,
 			      struct xip_ppal_ctx *ctx, struct sk_buff *skb,
 			      struct netlink_callback *cb)
 {	
+	printk("Inside Dump");	
 	struct popt_fib_xid_table *txtbl = xtbl_txtbl(xtbl);
+	printk("Inside Dump1");
 	int rc = 0;
 	read_lock(&txtbl->writers_lock);
+	printk("Inside Dump2");
 	int no_of_entries = sizeof(txtbl->fib.entries)/sizeof(txtbl->fib.entries[0]);
 	int i;
+	printk("Inside Dump3");
 	for(i =0 ; i<no_of_entries ; i++)
 	{
 		
 		struct fib_xid *fxid = (struct fib_xid*)txtbl->fib.entries[i];
+		printk("Inside Dump4");
 		rc = xtbl->all_eops[fxid->fx_table_id].
 				dump_fxid(fxid, xtbl, ctx, skb, cb);
 			if (rc < 0)
