@@ -94,6 +94,7 @@ static int local_newroute(struct xip_ppal_ctx *ctx,
 		return -ENOMEM;
 
 	dnf = fib_alloc_dnf(GFP_KERNEL);
+	printk("After Allocation");
 	if (!dnf) {
 		kfree(new_llpm);
 		return -ENOMEM;
@@ -104,12 +105,14 @@ static int local_newroute(struct xip_ppal_ctx *ctx,
 	 */
 	fxid_init(xtbl, &new_llpm->common, cfg->xfc_dst->xid_id,
 		  XRTABLE_LOCAL_INDEX, *(u8 *)cfg->xfc_protoinfo);
+	printk("After Init");
 	xdst_init_anchor(&new_llpm->anchor);
 
 	/* Use special version of newroute that keeps lock so that
 	 * we can add an entry and find the appropriate predecessor
 	 * atomically to flush the appropriate anchor.
 	 */
+	printk("After anchor");
 	rc = popt_fib_newroute_lock(&new_llpm->common, xtbl, cfg, NULL);
 	if (rc) {
 		fib_free_dnf(dnf);

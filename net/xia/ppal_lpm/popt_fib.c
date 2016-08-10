@@ -2373,9 +2373,9 @@ static void *popt_fxid_ppal_alloc(size_t ppal_entry_size, gfp_t flags)
 
 static void popt_fxid_init(struct fib_xid *fxid, int table_id, int entry_type)
 {
-	printk(KERN_ALERT "Inside fxid_init");
-	printk("TableID %d",table_id);
-	printk("entry %d", entry_type);
+	printk(KERN_ALERT "Inside fxid_init %d", 1);
+	printk(KERN_ALERT"TableID %d",table_id);
+	printk(KERN_ALERT "entry %d", entry_type);
 	BUILD_BUG_ON(XRTABLE_MAX_INDEX >= 0x100);
 	BUG_ON(table_id >= XRTABLE_MAX_INDEX);
 	fxid->fx_table_id = table_id;
@@ -2526,11 +2526,14 @@ int popt_fib_newroute_lock(struct fib_xid *new_fxid,
 		*padded = 0;
 
 	/* Acquire lock and do exact matching to find @cur_fxid. */
+	printk(KERN_ALERT "Phase1\n");
 	id = cfg->xfc_dst->xid_id;
 	XID addr = xid_XID(id);
+	printk(KERN_ALERT "Phase2\n");
 	cur_fxid = (struct fib_xid*)poptrie160_rib_lookup(txtbl , addr);
-
+	printk(KERN_ALERT "curr_fxid : %d",cur_fxid);
 	if (cur_fxid) {
+		printk(KERN_ALERT "Entered main loop in newroute");
 		if ((cfg->xfc_nlflags & NLM_F_EXCL) ||
 		    !(cfg->xfc_nlflags & NLM_F_REPLACE))
 			return -EEXIST;
@@ -2538,7 +2541,7 @@ int popt_fib_newroute_lock(struct fib_xid *new_fxid,
 		if (cur_fxid->fx_table_id != new_fxid->fx_table_id)
 			return -EINVAL;
 
-		
+		printk(KERN_ALERT "Will execute replace function\n");
 		popt_fxid_replace_locked(xtbl, cur_fxid, new_fxid);
 		fxid_free(xtbl, cur_fxid);
 		return 0;
@@ -2548,6 +2551,7 @@ int popt_fib_newroute_lock(struct fib_xid *new_fxid,
 		return -ENOENT;
 
 	/* Add new entry. */
+	printk(KERN_ALERT "Will Add entry now\n");
 	BUG_ON(popt_fxid_add_locked(NULL, xtbl, new_fxid));
 
 	if (padded)
@@ -2621,16 +2625,19 @@ static int popt_xtbl_dump_rcu(struct fib_xid_table *xtbl,
 	int rc = 0;
 	read_lock(&txtbl->writers_lock);
 	printk("Inside Dump2");
-	int no_of_entries = sizeof(txtbl->fib.entries)/sizeof(txtbl->fib.entries[0]);
+	int no_of_entries = txtbl->fib.n;
+	printk("no of entries %d",no_of_entries);
 	int i;
 	printk("Inside Dump3");
-	for(i =0 ; i<no_of_entries ; i++)
+	for(i =1 ; i<no_of_entries ; i++)
 	{
 		
 		struct fib_xid *fxid = (struct fib_xid*)txtbl->fib.entries[i];
 		printk("Inside Dump4");
+		printk("tableid %d",fxid->fx_table_id);
 		rc = xtbl->all_eops[fxid->fx_table_id].
 				dump_fxid(fxid, xtbl, ctx, skb, cb);
+		printk("After rc calculation %d",rc);
 			if (rc < 0)
 				goto out;
 	}
