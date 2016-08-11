@@ -62,6 +62,7 @@ struct poptrie_fib {
     	void **entries;
     	int n;
     	int sz;
+	bool *valid;
 };
 
 
@@ -198,6 +199,7 @@ static void _release_radix160(struct radix_node160 *);
 static u32
 _rib_lookup_prefix(struct radix_node160 *node, XID addr, int depth, int height,
             struct radix_node160 *en);
+bool match_xids(const u8 *xid1, const u8 *xid2);
 /*
  * Bit scan
  */
@@ -260,7 +262,7 @@ poptrie160_route_add(struct popt_fib_xid_table *poptrie, XID prefix, int len,
 
 	/* Find the FIB entry mapping first */
 	for ( i = 0; i < poptrie->fib.n; i++ ) {
-	if ( poptrie->fib.entries[i] == nexthop ) {
+	if ( poptrie->fib.entries[i] == nexthop && poptrie->fib.valid[i] ) {
 	    /* Found the matched entry */
 	    n = i;
 	    break;
@@ -275,6 +277,7 @@ poptrie160_route_add(struct popt_fib_xid_table *poptrie, XID prefix, int len,
 	/* Append new FIB entry */
 	n = poptrie->fib.n;
 	poptrie->fib.entries[n] = nexthop;
+	poptrie->fib.valid[n] = true;
 	poptrie->fib.n++;
 	}
 
@@ -300,7 +303,7 @@ poptrie160_route_change(struct popt_fib_xid_table *poptrie, XID prefix, int len,
 	int n;
 
 	for ( i = 0; i < poptrie->fib.n; i++ ) {
-	if ( poptrie->fib.entries[i] == nexthop ) {
+	if ( poptrie->fib.entries[i] == nexthop && poptrie->fib.valid[i] ) {
 	    n = i;
 	    break;
 	}
@@ -308,6 +311,7 @@ poptrie160_route_change(struct popt_fib_xid_table *poptrie, XID prefix, int len,
 	if ( i == poptrie->fib.n ) {
 	n = poptrie->fib.n;
 	poptrie->fib.entries[n] = nexthop;
+	poptrie->fib.valid[n] = true;
 	poptrie->fib.n++;
 	}
 
@@ -326,7 +330,7 @@ poptrie160_route_update(struct popt_fib_xid_table *poptrie, XID prefix, int len,
 	int n;
 
 	for ( i = 0; i < poptrie->fib.n; i++ ) {
-	if ( poptrie->fib.entries[i] == nexthop ) {
+	if ( poptrie->fib.entries[i] == nexthop && poptrie->fib.valid[i]) {
 	    n = i;
 	    break;
 	}
@@ -334,6 +338,7 @@ poptrie160_route_update(struct popt_fib_xid_table *poptrie, XID prefix, int len,
 	if ( i == poptrie->fib.n ) {
 	n = poptrie->fib.n;
 	poptrie->fib.entries[n] = nexthop;
+	poptrie->fib.valid[n] = true;
 	poptrie->fib.n++;
 	}
 
@@ -404,6 +409,8 @@ poptrie160_lookup(struct popt_fib_xid_table *poptrie, XID addr)
 	/* Not to be reached here, but put this to dismiss a compiler warning. */
 	return 0;
 }
+
+
 
 /*
  * Lookup the next hop from the radix tree (RIB table)
@@ -2251,6 +2258,7 @@ static XID xid_XID(const u8 *fx_xid){
 		prefix	+= fx_xid[i]<<(20-i-1)*8;
 	}	
 	addr.prefix2 = prefix;
+	return addr;
 }
 
 
@@ -2343,6 +2351,7 @@ static int popt_xtbl_init(struct xip_ppal_ctx *ctx, struct net *net,
 
 	/* Prepare the FIB mapping table */
 	txtbl->fib.entries =vmalloc(sizeof(void *) * POPTRIE_INIT_FIB_SIZE);
+	txtbl->fib.valid = vmalloc(sizeof(bool *) * POPTRIE_INIT_FIB_SIZE);
 	if ( NULL == txtbl->fib.entries ) {
 	poptrie160_release(txtbl);
 	return NULL;
@@ -2350,7 +2359,9 @@ static int popt_xtbl_init(struct xip_ppal_ctx *ctx, struct net *net,
 	txtbl->fib.sz = POPTRIE_INIT_FIB_SIZE;
 	txtbl->fib.n = 0;
 	/* Insert a NULL entry */
-	txtbl->fib.entries[txtbl->fib.n++] = NULL;
+	int v = txtbl->fib.n++;
+	txtbl->fib.entries[v] = NULL;
+	txtbl->fib.valid[v] = true;
 
 	
 	new_xtbl->fxt_ppal_type = ctx->xpc_ppal_type;
@@ -2432,14 +2443,16 @@ static int popt_iterate_xids(struct fib_xid_table *xtbl,
 
 	read_lock(&txtbl->writers_lock);
 	int i;
-	for( i = 0 ; i < txtbl->fib.n ; i++)
+	for( i = 1 ; i < txtbl->fib.n ; i++)
 	{	
+		if(txtbl->fib.valid[i])	{	
 		struct fib_xid* cur= (struct fib_xid*)txtbl->fib.entries[i];
 	
 		XID addr = xid_XID(cur);
 		rc = locked_callback(xtbl, cur, arg);
 			if (rc)
 				goto out;
+		}
 	}
 	
 out:
@@ -2458,6 +2471,8 @@ static int popt_fxid_add_locked(void *parg, struct fib_xid_table *xtbl,
 	XID addr = xid_XID(fxid->fx_xid);	
 	int ret = poptrie160_route_add(txtbl, addr, len_in_bits, (void*)fxid);
 	printk("Return Value %d", ret);
+	
+	if(ret==0) atomic_inc(&xtbl->fxt_count);
 	return ret;
 }
 
@@ -2478,8 +2493,29 @@ static void popt_fxid_rm_locked(void *parg, struct fib_xid_table *xtbl,
 {
 	printk(KERN_ALERT "Inside rm locked");
 	struct popt_fib_xid_table *txtbl = xtbl_txtbl(xtbl);
-	XID addr = xid_XID(fxid->fx_xid); 
-	poptrie160_route_del(txtbl , addr , 160);
+	XID addr = xid_XID(fxid->fx_xid);
+	printk("addr1 : %d\n",addr.prefix1);
+	printk("addr2 : %d\n",addr.prefix2);
+	printk("length : %d\n",fxid->fx_entry_type);
+	int ret; 
+	if(NULL!= poptrie160_lookup(txtbl,addr))printk("Before deletion");
+	ret = poptrie160_route_del(txtbl , addr , fxid->fx_entry_type);
+	if(NULL== poptrie160_lookup(txtbl,addr))printk("After deletion");
+
+	if(ret==0) {
+		int i;
+		for( i=1; i< txtbl->fib.n;i++){
+			if(txtbl->fib.valid[i]){
+			struct fib_xid *temp = (struct fib_xid*)txtbl->fib.entries[i];
+			if(match_xids(temp->fx_xid,fxid->fx_xid) && temp->fx_entry_type==fxid->fx_entry_type)
+				{
+					txtbl->fib.valid[i]=false;
+				}
+		}			
+		}
+		atomic_dec(&xtbl->fxt_count);
+		}
+	printk(KERN_ALERT "return value in rm : %d\n",ret);
 }
 
 static void popt_fxid_rm(struct fib_xid_table *xtbl, struct fib_xid *fxid)
@@ -2513,6 +2549,34 @@ static void popt_fxid_replace_locked(struct fib_xid_table *xtbl,
 	
 }
 
+//Function to compare two XID's
+bool match_xids(const u8 *xid1, const u8 *xid2){
+	int i;	
+	for(i = 0; i <20 ;i++){
+		if(xid1[i]!=xid2[i]) return false;	
+	}
+	return true;
+
+}
+
+
+struct fib_xid *
+poptrie160_exact_lookup(struct popt_fib_xid_table *poptrie, const u8 *xid, u8 prefix_len){
+	int i;
+	printk("printing n %d\n",poptrie->fib.n);
+	for(i = 1; i< poptrie->fib.n ;i++){
+		if(poptrie->fib.valid[i]){
+			struct fib_xid *temp = (struct fib_xid*)poptrie->fib.entries[i];
+			printk(KERN_ALERT "temp fxid : %d\n",temp);
+			if(match_xids(temp->fx_xid,xid) && temp->fx_entry_type==prefix_len)
+				{
+					printk(KERN_ALERT "match found");				
+					return temp;
+				}
+		}
+	}
+	return NULL;
+}
 int popt_fib_newroute_lock(struct fib_xid *new_fxid,
 			   struct fib_xid_table *xtbl,
 			   struct xia_fib_config *cfg, int *padded)
@@ -2530,7 +2594,9 @@ int popt_fib_newroute_lock(struct fib_xid *new_fxid,
 	id = cfg->xfc_dst->xid_id;
 	XID addr = xid_XID(id);
 	printk(KERN_ALERT "Phase2\n");
-	cur_fxid = (struct fib_xid*)poptrie160_rib_lookup(txtbl , addr);
+	//cur_fxid = (struct fib_xid*)poptrie160_lookup(txtbl , addr);
+	cur_fxid = poptrie160_exact_lookup(txtbl , id , new_fxid->fx_entry_type);
+	
 	printk(KERN_ALERT "curr_fxid : %d",cur_fxid);
 	if (cur_fxid) {
 		printk(KERN_ALERT "Entered main loop in newroute");
@@ -2588,12 +2654,16 @@ int popt_fib_delroute(struct xip_ppal_ctx *ctx, struct fib_xid_table *xtbl,
 	XID addr = xid_XID(cfg->xfc_dst->xid_id);
 	struct fib_xid *fxid;
 	int rc;
-
+	const u8 *id;
 	if (!valid_prefix(cfg))
 		return -EINVAL;
 
 	/* Do exact matching to find @fxid. */
-	fxid  = (struct fib_xid*)poptrie160_rib_lookup(txtbl , addr);
+	printk(KERN_ALERT "Before lookup in delroute\n");
+	//fxid  = (struct fib_xid*)poptrie160_rib_lookup(txtbl , addr);
+	id  = cfg->xfc_dst->xid_id;
+	fxid  = (struct fib_xid*)poptrie160_exact_lookup(txtbl , id , *(u8 *)cfg->xfc_protoinfo);
+	printk(KERN_ALERT "FXID : %d",fxid);
 	if (!fxid) {
 		rc = -ENOENT;
 		goto unlock;
@@ -2602,8 +2672,10 @@ int popt_fib_delroute(struct xip_ppal_ctx *ctx, struct fib_xid_table *xtbl,
 		rc = -EINVAL;
 		goto unlock;
 	}
-
+	
+	printk("Rm lock Started");
 	popt_fxid_rm_locked(NULL, xtbl, fxid);
+	printk("Rm lock Finished");
 	popt_fib_unlock(xtbl, NULL);
 	fxid_free(xtbl, fxid);
 	return 0;
@@ -2631,15 +2703,16 @@ static int popt_xtbl_dump_rcu(struct fib_xid_table *xtbl,
 	printk("Inside Dump3");
 	for(i =1 ; i<no_of_entries ; i++)
 	{
-		
-		struct fib_xid *fxid = (struct fib_xid*)txtbl->fib.entries[i];
-		printk("Inside Dump4");
-		printk("tableid %d",fxid->fx_table_id);
-		rc = xtbl->all_eops[fxid->fx_table_id].
-				dump_fxid(fxid, xtbl, ctx, skb, cb);
-		printk("After rc calculation %d",rc);
-			if (rc < 0)
-				goto out;
+		if(txtbl->fib.valid[i]){	
+			struct fib_xid *fxid = (struct fib_xid*)txtbl->fib.entries[i];
+			printk("Inside Dump4");
+			printk("tableid %d",fxid->fx_table_id);
+			rc = xtbl->all_eops[fxid->fx_table_id].
+					dump_fxid(fxid, xtbl, ctx, skb, cb);
+			printk("After rc calculation %d",rc);
+				if (rc < 0)
+					goto out;
+		}
 	}
 out:
 	read_unlock(&txtbl->writers_lock);
