@@ -461,7 +461,6 @@ _update_part(struct popt_fib_xid_table *poptrie, struct radix_node160 *tnode, in
 	}
 	if ( ret > 0 ) {
 	    /* Clean */
-	    //////buddy_free2(poptrie->cleaves, cnodes[0].base0);
 	    cnodes[0].base0 = -1;
 
 	    /* Replace the root with an atomic instruction */
@@ -471,7 +470,7 @@ _update_part(struct popt_fib_xid_table *poptrie, struct radix_node160 *tnode, in
 	    if ( !alt ) {
 		_update_clean_subtree(poptrie, oroot);
 		if ( (int)oroot >= 0 ) {
-		    //////buddy_free2(poptrie->cnodes, oroot);
+			//Memory free code to be added.
 		}
 	    }
 
@@ -479,7 +478,7 @@ _update_part(struct popt_fib_xid_table *poptrie, struct radix_node160 *tnode, in
 	}
 
 	/* Replace the root */
-	nroot = get_new_node(poptrie,0);//buddy_alloc2(poptrie->cnodes, 0);
+	nroot = get_new_node(poptrie,0);
 	if ( nroot < 0 ) {
 	    return -1;
 	}
@@ -516,7 +515,6 @@ _update_part(struct popt_fib_xid_table *poptrie, struct radix_node160 *tnode, in
 	}
 	if ( ret > 0 ) {
 	vcomp = 1;
-	//////buddy_free2(poptrie->cleaves, cnodes[0].base0);
 	cnodes[0].base0 = -1;
 	} else {
 	vcomp = 0;
@@ -533,7 +531,7 @@ _update_part(struct popt_fib_xid_table *poptrie, struct radix_node160 *tnode, in
 		    VEC_INIT(cnodes[i].leafvec);
 		    if ( i == NODEINDEX(stack->idx) ) {
 		        if ( 0 == BITINDEX(stack->idx) ) {
-		            base0 = get_new_leaf(poptrie,1);//buddy_alloc2(poptrie->cleaves, 1);
+		            base0 = get_new_leaf(poptrie,1);
 		            if ( base0 < 0 ) {
 		                return -1;
 		            }
@@ -542,7 +540,7 @@ _update_part(struct popt_fib_xid_table *poptrie, struct radix_node160 *tnode, in
 		            VEC_SET(cnodes[i].leafvec, 0);
 		            VEC_SET(cnodes[i].leafvec, 1);
 		        } else if ( ((1 << 6) - 1) == BITINDEX(stack->idx) ) {
-		            base0 = get_new_leaf(poptrie,1);//buddy_alloc2(poptrie->cleaves, 1);
+		            base0 = get_new_leaf(poptrie,1);
 		            if ( base0 < 0 ) {
 		                return -1;
 		            }
@@ -551,7 +549,7 @@ _update_part(struct popt_fib_xid_table *poptrie, struct radix_node160 *tnode, in
 		            VEC_SET(cnodes[i].leafvec, 0);
 		            VEC_SET(cnodes[i].leafvec, BITINDEX(stack->idx));
 		        } else {
-		            base0 = get_new_leaf(poptrie,2);//buddy_alloc2(poptrie->cleaves, 2);
+		            base0 = get_new_leaf(poptrie,2);
 		            if ( base0 < 0 ) {
 		                return -1;
 		            }
@@ -564,7 +562,7 @@ _update_part(struct popt_fib_xid_table *poptrie, struct radix_node160 *tnode, in
 		                    BITINDEX(stack->idx) + 1);
 		        }
 		    } else {
-		        base0 = get_new_leaf(poptrie,0);//buddy_alloc2(poptrie->cleaves, 0);
+		        base0 = get_new_leaf(poptrie,0);
 		        if ( base0 < 0 ) {
 		            return -1;
 		        }
@@ -609,7 +607,7 @@ _update_part(struct popt_fib_xid_table *poptrie, struct radix_node160 *tnode, in
 
 		if ( 1 != n || 0 != POPCNT(vector) || (stack - 1)->idx < 0 ) {
 		    vcomp = 0;
-		    base0 = get_new_leaf(poptrie,bsr(n - 1) + 1);//buddy_alloc2(poptrie->cleaves, bsr(n - 1) + 1);
+		    base0 = get_new_leaf(poptrie,bsr(n - 1) + 1);
 		    if ( base0 < 0 ) {
 		        return -1;
 		    }
@@ -619,7 +617,7 @@ _update_part(struct popt_fib_xid_table *poptrie, struct radix_node160 *tnode, in
 		    p = POPCNT(vector);
 		    n = p;
 		    if ( n > 0 ) {
-		        base1 = get_new_node(poptrie,bsr(n - 1) + 1);//buddy_alloc2(poptrie->cnodes, bsr(n - 1) + 1);
+		        base1 = get_new_node(poptrie,bsr(n - 1) + 1);
 		        if ( base1 < 0 ) {
 		            return -1;
 		        }
@@ -682,7 +680,7 @@ _update_part(struct popt_fib_xid_table *poptrie, struct radix_node160 *tnode, in
 		        return 0;
 		    }
 
-		    base0 = get_new_leaf(poptrie,bsr(n - 1) + 1);//buddy_alloc2(poptrie->cleaves, bsr(n - 1) + 1);
+		    base0 = get_new_leaf(poptrie,bsr(n - 1) + 1);
 		    if ( base0 < 0 ) {
 		        return -1;
 		    }
@@ -704,7 +702,7 @@ _update_part(struct popt_fib_xid_table *poptrie, struct radix_node160 *tnode, in
 	while ( stack->idx >= 0 ) {
 	if ( stack->inode < 0 ) {
 	    /* Create a new node */
-	    base1 = get_new_node(poptrie,0);//buddy_alloc2(poptrie->cnodes, 0);
+	    base1 = get_new_node(poptrie,0);
 	    if ( base1 < 0 ) {
 		return -1;
 	    }
@@ -720,7 +718,7 @@ _update_part(struct popt_fib_xid_table *poptrie, struct radix_node160 *tnode, in
 	    cnodes[NODEINDEX(stack->idx)].base1 = base1;
 
 	    for ( i = 0; i < (1 << (stack->width - 6)); i++ ) {
-		base0 = get_new_leaf(poptrie,0);//buddy_alloc2(poptrie->cleaves, 0);
+		base0 = get_new_leaf(poptrie,0);
 		if ( base0 < 0 ) {
 		    return -1;
 		}
@@ -739,7 +737,7 @@ _update_part(struct popt_fib_xid_table *poptrie, struct radix_node160 *tnode, in
 		/* Same vector, then allocate and replace */
 		p = POPCNT(node->vector);
 		n = p;
-		base1 = get_new_node(poptrie,bsr(n - 1) + 1);//buddy_alloc2(poptrie->cnodes, bsr(n - 1) + 1);
+		base1 = get_new_node(poptrie,bsr(n - 1) + 1);
 		if ( base1 < 0 ) {
 		    return -1;
 		}
@@ -771,7 +769,7 @@ _update_part(struct popt_fib_xid_table *poptrie, struct radix_node160 *tnode, in
 
 		p = POPCNT(vector);
 		n = p;
-		base1 = get_new_node(poptrie,bsr(n - 1) + 1);//buddy_alloc2(poptrie->cnodes, bsr(n - 1) + 1);
+		base1 = get_new_node(poptrie,bsr(n - 1) + 1);
 		if ( base1 < 0 ) {
 		    return -1;
 		}
@@ -794,7 +792,7 @@ _update_part(struct popt_fib_xid_table *poptrie, struct radix_node160 *tnode, in
 		            }
 		        }
 		    }
-		    base0 = get_new_leaf(poptrie,bsr(n - 1)+1);//buddy_alloc2(poptrie->cleaves, bsr(n - 1) + 1);
+		    base0 = get_new_leaf(poptrie,bsr(n - 1)+1);
 		    if ( base0 < 0 ) {
 		        return -1;
 		    }
@@ -833,7 +831,7 @@ _update_part(struct popt_fib_xid_table *poptrie, struct radix_node160 *tnode, in
 	}
 
 	/* Replace the root */
-	nroot = get_new_leaf(poptrie,0);//buddy_alloc2(poptrie->cnodes, 0);
+	nroot = get_new_leaf(poptrie,0);
 	if ( nroot < 0 ) {
 	return -1;
 	}
@@ -890,7 +888,7 @@ _update_subtree(struct popt_fib_xid_table *poptrie, struct radix_node160 *node,
 		if ( (poptrie->dir[idx + i] & ((u32)1 << 31))
 		     && !(poptrie->altdir[idx + i] & ((u32)1 << 31)) ) {
 		    _update_clean_subtree(poptrie, poptrie->altdir[idx + i]);
-		    //////buddy_free2(poptrie->cnodes, poptrie->altdir[idx + i]);
+		    //Memory free code to be added.
 		} else if ( !(poptrie->altdir[idx + i] & ((u32)1 << 31)) ) {
 		    _update_clean_root(poptrie, poptrie->dir[idx + i],
 		                       poptrie->altdir[idx + i]);
@@ -1023,7 +1021,7 @@ _update_inode_chunk(struct popt_fib_xid_table *poptrie, struct radix_node160 *no
 	ret = _update_inode_chunk_rec(poptrie, node, inode, nodes, leaf, 0, 0);
 	if ( ret > 0 ) {
 	/* Clean */
-	//////buddy_free2(poptrie->cleaves, nodes[0].base0);
+	//Memory free code to be added.
 	}
 
 	return ret;
@@ -1213,7 +1211,7 @@ _update_inode(struct popt_fib_xid_table *poptrie, struct radix_node160 *node, in
 	base1 = -1;
 	if ( nvec > 0 ) {
 	p = nvec;
-	base1 = get_new_node(poptrie,bsr(p - 1) + 1);//buddy_alloc2(poptrie->cnodes, bsr(p - 1) + 1);
+	base1 = get_new_node(poptrie,bsr(p - 1) + 1);
 	if ( base1 < 0 ) {
 	    return -1;
 	}
@@ -1222,10 +1220,10 @@ _update_inode(struct popt_fib_xid_table *poptrie, struct radix_node160 *node, in
 	base0 = -1;
 	if ( nlvec > 0 ) {
 	p = nlvec;
-	base0 = get_new_leaf(poptrie,bsr(p - 1)+1);//buddy_alloc2(poptrie->cleaves, bsr(p - 1) + 1);
+	base0 = get_new_leaf(poptrie,bsr(p - 1)+1);
 	if ( base0 < 0 ) {
 	    if ( base1 >= 0 ) {
-		////buddy_free2(poptrie->cnodes, base1);
+		//Memory free code to be added.
 	    }
 	    return -1;
 	}
@@ -1290,7 +1288,7 @@ _update_dp1(struct popt_fib_xid_table *poptrie, struct radix_node160 *tnode, int
 		        poptrie->dir[idx + i] = ((u32)1 << 31) | EXT_NH(tnode);
 		        _update_clean_subtree(poptrie, poptrie->dir[idx + i]);
 		        if ( (int)poptrie->dir[idx + i] >= 0 ) {
-		            ////buddy_free2(poptrie->cnodes, poptrie->dir[idx + i]);
+		            //Memory free code to be added.
 		        }
 		    }
 		}
@@ -1313,7 +1311,7 @@ _update_dp1(struct popt_fib_xid_table *poptrie, struct radix_node160 *tnode, int
 		        poptrie->dir[idx + i] = ((u32)1 << 31) | EXT_NH(tnode);
 		        _update_clean_subtree(poptrie, poptrie->dir[idx + i]);
 		        if ( (int)poptrie->dir[idx + i] >= 0 ) {
-		            ////buddy_free2(poptrie->cnodes, poptrie->dir[idx + i]);
+		            //Memory free code to be added.
 		        }
 		    }
 		}
@@ -1338,7 +1336,7 @@ _update_dp1(struct popt_fib_xid_table *poptrie, struct radix_node160 *tnode, int
 		            poptrie->dir[idx + i] = ((u32)1 << 31) | EXT_NH(tnode);
 		            _update_clean_subtree(poptrie, poptrie->dir[idx + i]);
 		            if ( (int)poptrie->dir[idx + i] >= 0 ) {
-		                ////buddy_free2(poptrie->cnodes, poptrie->dir[idx + i]);
+		                //Memory free code to be added.
 		            }
 		        }
 		    }
@@ -1360,7 +1358,7 @@ _update_dp1(struct popt_fib_xid_table *poptrie, struct radix_node160 *tnode, int
 		        poptrie->dir[idx + i] = ((u32)1 << 31) | EXT_NH(tnode);
 		        _update_clean_subtree(poptrie, poptrie->dir[idx + i]);
 		        if ( (int)poptrie->dir[idx + i] >= 0 ) {
-		            ////buddy_free2(poptrie->cnodes, poptrie->dir[idx + i]);
+		            //Memory free code to be added.
 		        }
 		    }
 		}
@@ -1419,7 +1417,7 @@ _update_dp2(struct popt_fib_xid_table *poptrie, struct radix_node160 *tnode, int
 		poptrie->dir[idx + i] = ((u32)1 << 31) | EXT_NH(tnode);
 		_update_clean_subtree(poptrie, poptrie->dir[idx + i]);
 		if ( (int)poptrie->dir[idx + i] >= 0 ) {
-		    ////buddy_free2(poptrie->cnodes, poptrie->dir[idx + i]);
+		    //Memory free code to be added.
 		}
 	    }
 	}
@@ -1446,7 +1444,7 @@ _update_dp2(struct popt_fib_xid_table *poptrie, struct radix_node160 *tnode, int
 		poptrie->dir[idx + i] = ((u32)1 << 31) | EXT_NH(tnode);
 		_update_clean_subtree(poptrie, poptrie->dir[idx + i]);
 		if ( (int)poptrie->dir[idx + i] >= 0 ) {
-		    ////buddy_free2(poptrie->cnodes, poptrie->dir[idx + i]);
+		   //Memory free code to be added.
 		}
 	    }
 	}
@@ -1484,15 +1482,15 @@ _update_clean_root(struct popt_fib_xid_table *poptrie, int nroot, int oroot)
 
 	if ( poptrie->nodes[nroot].base1 != poptrie->nodes[oroot].base1
 	 && (u32)-1 != poptrie->nodes[oroot].base1 ) {
-	////buddy_free2(poptrie->cnodes, poptrie->nodes[oroot].base1);
+	//Memory free code to be added.
 	}
 	if ( poptrie->nodes[nroot].base0 != poptrie->nodes[oroot].base0
 	 && (u32)-1 != poptrie->nodes[oroot].base0 ) {
-	////buddy_free2(poptrie->cleaves, poptrie->nodes[oroot].base0);
+	//Memory free code to be added.
 	}
 	/* Clear */
 	if ( oroot != nroot ) {
-	////buddy_free2(poptrie->cnodes, oroot);
+	//Memory free code to be added.
 	}
 }
 
@@ -1519,7 +1517,7 @@ _update_clean_node(struct popt_fib_xid_table *poptrie, poptrie_node_t *node, int
 
 	/* Clear */
 	if ( (int)node->base1 != oinode ) {
-	 ////buddy_free2(poptrie->cnodes, oinode);
+	 //Memory free code to be added.
 	}
 }
 static void
@@ -1555,11 +1553,11 @@ _update_clean_inode(struct popt_fib_xid_table *poptrie, int ninode, int oinode)
 
 	if ( (u32)-1 != poptrie->nodes[oinode].base1
 	     && poptrie->nodes[oinode].base1 != poptrie->nodes[ninode].base1 ) {
-	    ////buddy_free2(poptrie->cnodes, poptrie->nodes[oinode].base1);
+	    //Memory free code to be added.
 	}
 	if ( (u32)-1 != poptrie->nodes[oinode].base0
 	     && poptrie->nodes[oinode].base0 != poptrie->nodes[ninode].base0 ) {
-	    ////buddy_free2(poptrie->cleaves, poptrie->nodes[oinode].base0);
+	    //Memory free code to be added.
 	}
 	} else {
 	obase = poptrie->nodes[oinode].base1;
@@ -1571,10 +1569,10 @@ _update_clean_inode(struct popt_fib_xid_table *poptrie, int ninode, int oinode)
 	}
 
 	if ( (u32)-1 != poptrie->nodes[oinode].base1 ) {
-	    ////buddy_free2(poptrie->cnodes, poptrie->nodes[oinode].base1);
+	    //Memory free code to be added.
 	}
 	if ( (u32)-1 != poptrie->nodes[oinode].base0 ) {
-	    ////buddy_free2(poptrie->cleaves, poptrie->nodes[oinode].base0);
+	    //Memory free code to be added.
 	}
 	}
 }
@@ -1605,11 +1603,11 @@ _update_clean_subtree(struct popt_fib_xid_table *poptrie, int oinode)
 
 	/* Clear */
 	if ( (int)node->base1 >= 0 ) {
-	////buddy_free2(poptrie->cnodes, node->base1);
+	//Memory free code to be added.
 	}
 
 	if ( (int)node->base0 >= 0 ) {
-	////buddy_free2(poptrie->cleaves, node->base0);
+	//Memory free code to be added.
 	}
 }
 
@@ -2020,29 +2018,29 @@ _route_del(struct popt_fib_xid_table *poptrie, struct radix_node160 **node,
 	}
 
 	if ( len == depth ) {
-	if ( !(*node)->valid ) {
-	    /* No entry found */
-	    return -1;
-	}
+		if ( !(*node)->valid ) {
+		    /* No entry found */
+		    return -1;
+		}
 
-	/* Propagate first */
-	(*node)->mark = _route_del_propagate(*node, *node, ext);
+		/* Propagate first */
+		(*node)->mark = _route_del_propagate(*node, *node, ext);
 
-	/* Invalidate the node */
-	(*node)->valid = 0;
-	(*node)->nexthop = 0;
+		/* Invalidate the node */
+		(*node)->valid = 0;
+		(*node)->nexthop = 0;
 
-	/* Marked root */
-	ret = _update_subtree(poptrie, *node, prefix, depth);
-	if ( ret < 0 ) {
-	    return -1;
-	}
+		/* Marked root */
+		ret = _update_subtree(poptrie, *node, prefix, depth);
+		if ( ret < 0 ) {
+		    return -1;
+		}
 
-	/* May need to delete this node if both children are empty, but we
-	   not care in this implementation because we have a large amount
-	   memory and the unused memory do not affect the performance. */
+		/* May need to delete this node if both children are empty, but we
+		   not care in this implementation because we have a large amount
+		   memory and the unused memory do not affect the performance. */
 
-	return 0;
+		return 0;
 	} else {
 	/* Update the propagate node if valid */
 	if ( (*node)->valid ) {
@@ -2203,11 +2201,9 @@ poptrie160_release(struct popt_fib_xid_table *poptrie)
 	vfree(poptrie->leaves);
 	}
 	if ( poptrie->cnodes ) {
-	//buddy_release(poptrie->cnodes);
 	vfree(poptrie->cnodes);
 	}
 	if ( poptrie->cleaves ) {
-	//  buddy_release(poptrie->cleaves);
 	vfree(poptrie->cleaves);
 	}
 	if ( poptrie->dir ) {
@@ -2351,7 +2347,7 @@ static int popt_xtbl_init(struct xip_ppal_ctx *ctx, struct net *net,
 
 	/* Prepare the FIB mapping table */
 	txtbl->fib.entries =vmalloc(sizeof(void *) * POPTRIE_INIT_FIB_SIZE);
-	txtbl->fib.valid = vmalloc(sizeof(bool *) * POPTRIE_INIT_FIB_SIZE);
+	txtbl->fib.valid = vmalloc(sizeof(bool));
 	if ( NULL == txtbl->fib.entries ) {
 	poptrie160_release(txtbl);
 	return NULL;
@@ -2402,7 +2398,7 @@ static void popt_fxid_init(struct fib_xid *fxid, int table_id, int entry_type)
 
 static void popt_xtbl_death_work(struct work_struct *work)
 {
-	printk(KERN_ALERT "Inside deathWork");
+	printk(KERN_ALERT "Inside deathWork\n");
 	struct fib_xid_table *xtbl = container_of(work, struct fib_xid_table,
 		fxt_death_work);
 	kfree(xtbl);
@@ -2412,12 +2408,13 @@ static void popt_xtbl_death_work(struct work_struct *work)
 static void popt_fib_unlock(struct fib_xid_table *xtbl, void *parg)
 {
 	write_unlock(&xtbl_txtbl(xtbl)->writers_lock);
-	printk(KERN_ALERT "Inside unlock");
+	printk(KERN_ALERT "Inside unlock\n");
 }
 
 static struct fib_xid *popt_fxid_find_rcu(struct fib_xid_table *xtbl,
 					  const u8 *xid)
 {
+	printk(KERN_ALERT "Inside Rcu\n");	
 	struct popt_fib_xid_table *txtbl = xtbl_txtbl(xtbl);
 	XID addr = xid_XID(xid);
 	struct fib_xid* ret = (struct fib_xid*)poptrie160_rib_lookup(txtbl , addr);
@@ -2428,6 +2425,7 @@ static struct fib_xid *popt_fxid_find_rcu(struct fib_xid_table *xtbl,
 static struct fib_xid *popt_fxid_find_lock(void *parg,
 	struct fib_xid_table *xtbl, const u8 *xid)
 {
+	printk(KERN_ALERT "Fxid_find_lock\n");
 	return popt_fxid_find_rcu(xtbl,xid);
 }
 
@@ -2438,6 +2436,7 @@ static int popt_iterate_xids(struct fib_xid_table *xtbl,
 						    const void *arg),
 			     const void *arg)
 {
+	printk(KERN_ALERT "Inside iterate Xid's\n");
 	struct popt_fib_xid_table *txtbl = xtbl_txtbl(xtbl);
 	int rc = 0;
 
@@ -2446,10 +2445,10 @@ static int popt_iterate_xids(struct fib_xid_table *xtbl,
 	for( i = 1 ; i < txtbl->fib.n ; i++)
 	{	
 		if(txtbl->fib.valid[i])	{	
-		struct fib_xid* cur= (struct fib_xid*)txtbl->fib.entries[i];
+			struct fib_xid* cur= (struct fib_xid*)txtbl->fib.entries[i];
 	
-		XID addr = xid_XID(cur);
-		rc = locked_callback(xtbl, cur, arg);
+			XID addr = xid_XID(cur);
+			rc = locked_callback(xtbl, cur, arg);
 			if (rc)
 				goto out;
 		}
@@ -2464,7 +2463,7 @@ out:
 static int popt_fxid_add_locked(void *parg, struct fib_xid_table *xtbl,
 				struct fib_xid *fxid)
 {
-	printk(KERN_ALERT "Inside add locked");	
+	printk(KERN_ALERT "Inside add locked\n");	
 	struct popt_fib_xid_table *txtbl = xtbl_txtbl(xtbl);
 	int len_in_bits = (fxid->fx_entry_type);
 	printk("Length %d",len_in_bits);
@@ -2479,7 +2478,7 @@ static int popt_fxid_add_locked(void *parg, struct fib_xid_table *xtbl,
 static int popt_fxid_add(struct fib_xid_table *xtbl, struct fib_xid *fxid)
 {	
 	int rc;
-	printk(KERN_ALERT "Inside add function");
+	printk(KERN_ALERT "Inside add function\n");
 	write_lock(&xtbl_txtbl(xtbl)->writers_lock);
 	rc = popt_fxid_add_locked(NULL, xtbl, fxid);
 	write_unlock(&xtbl_txtbl(xtbl)->writers_lock);
@@ -2491,7 +2490,7 @@ static int popt_fxid_add(struct fib_xid_table *xtbl, struct fib_xid *fxid)
 static void popt_fxid_rm_locked(void *parg, struct fib_xid_table *xtbl,
 				struct fib_xid *fxid)
 {
-	printk(KERN_ALERT "Inside rm locked");
+	printk(KERN_ALERT "Inside rm locked\n");
 	struct popt_fib_xid_table *txtbl = xtbl_txtbl(xtbl);
 	XID addr = xid_XID(fxid->fx_xid);
 	printk("addr1 : %d\n",addr.prefix1);
@@ -2520,7 +2519,7 @@ static void popt_fxid_rm_locked(void *parg, struct fib_xid_table *xtbl,
 
 static void popt_fxid_rm(struct fib_xid_table *xtbl, struct fib_xid *fxid)
 {
-	printk(KERN_ALERT "Inside rm");
+	printk(KERN_ALERT "Inside rm\n");
 	write_lock(&xtbl_txtbl(xtbl)->writers_lock);
 	popt_fxid_rm_locked(NULL, xtbl, fxid);
 	write_unlock(&xtbl_txtbl(xtbl)->writers_lock);
@@ -2531,6 +2530,7 @@ static void popt_fxid_rm(struct fib_xid_table *xtbl, struct fib_xid *fxid)
  */
 static struct fib_xid *popt_xid_rm(struct fib_xid_table *xtbl, const u8 *xid)
 {
+	printk(KERN_ALERT "Inside Popt_xid_rm\n"); 	
 	return NULL;
 }
 
@@ -2538,14 +2538,12 @@ static void popt_fxid_replace_locked(struct fib_xid_table *xtbl,
 				     struct fib_xid *old_fxid,
 				     struct fib_xid *new_fxid)
 {
-	printk(KERN_ALERT "Inside replace");
+	printk(KERN_ALERT "Inside replace\n");
 	//Replacement by deleting the previous entry and adding the new 
 	struct popt_fib_xid_table *txtbl = xtbl_txtbl(xtbl);
 	XID addr_old = xid_XID(old_fxid->fx_xid);
 	XID addr_new = xid_XID(new_fxid->fx_xid);
-	poptrie160_route_del(txtbl , addr_old , old_fxid->fx_entry_type);
-	poptrie160_route_add(txtbl, addr_new, new_fxid->fx_entry_type, (void*)new_fxid);
-	
+	poptrie160_route_change(txtbl , addr_old , old_fxid->fx_entry_type, (void*)new_fxid);
 	
 }
 
@@ -2599,7 +2597,7 @@ int popt_fib_newroute_lock(struct fib_xid *new_fxid,
 	
 	printk(KERN_ALERT "curr_fxid : %d",cur_fxid);
 	if (cur_fxid) {
-		printk(KERN_ALERT "Entered main loop in newroute");
+		printk(KERN_ALERT "Entered main loop in newroute\n");
 		if ((cfg->xfc_nlflags & NLM_F_EXCL) ||
 		    !(cfg->xfc_nlflags & NLM_F_REPLACE))
 			return -EEXIST;
@@ -2637,6 +2635,7 @@ static int popt_fib_newroute(struct fib_xid *new_fxid,
 			     struct fib_xid_table *xtbl,
 			     struct xia_fib_config *cfg, int *padded)
 {
+	printk(KERN_ALERT "Inside Newroute\n");	
 	int rc = popt_fib_newroute_lock(new_fxid, xtbl, cfg, padded);
 	popt_fib_unlock(xtbl, NULL);
 	return rc;
@@ -2721,7 +2720,7 @@ out:
 
 struct fib_xid *popt_fib_get_pred_locked(struct fib_xid_table *xtbl, struct fib_xid *fxid)
 {
-	
+	printk(KERN_ALERT "Inside pred function");
 	struct popt_fib_xid_table *txtbl = xtbl_txtbl(xtbl);	
 	read_lock(&txtbl->writers_lock);
 	XID addr = xid_XID(fxid->fx_xid);
@@ -2729,6 +2728,7 @@ struct fib_xid *popt_fib_get_pred_locked(struct fib_xid_table *xtbl, struct fib_
 	struct fib_xid* ret = (struct fib_xid*)txtbl->fib.entries[_rib_lookup_prefix(txtbl->radix, addr, 0, height, NULL)];
 	read_unlock(&txtbl->writers_lock);
 	return ret;
+	//return NULL;
 }
 
 /* Main entries for LPM need to display the prefix length when dumped,
@@ -2738,6 +2738,7 @@ int popt_fib_mrd_dump(struct fib_xid *fxid, struct fib_xid_table *xtbl,
 		      struct xip_ppal_ctx *ctx, struct sk_buff *skb,
 		      struct netlink_callback *cb)
 {
+	printk(KERN_ALERT "Inside mrd_dump");	
 	struct nlmsghdr *nlh;
 	u32 portid = NETLINK_CB(cb->skb).portid;
 	u32 seq = cb->nlh->nlmsg_seq;
