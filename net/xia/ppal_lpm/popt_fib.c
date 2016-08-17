@@ -12,7 +12,6 @@ typedef uint32_t u32;
 typedef uint64_t u64;
 
 
-//#define uint160 uint8_t [20]
 #define POPTRIE_S               18
 #define POPTRIE_INIT_FIB_SIZE   4096
 
@@ -201,6 +200,8 @@ static u32
 _rib_lookup_prefix(struct radix_node160 *node, XID addr, int depth, int height,
             struct radix_node160 *en);
 bool match_xids(const u8 *xid1, const u8 *xid2);
+
+
 /*
  * Bit scan
  */
@@ -1499,15 +1500,15 @@ _update_clean_root(struct popt_fib_xid_table *poptrie, int nroot, int oroot)
 
 	if ( poptrie->nodes[nroot].base1 != poptrie->nodes[oroot].base1
 	 && (u32)-1 != poptrie->nodes[oroot].base1 ) {
-	//Memory free code to be added.
+		//Memory free code to be added.
 	}
 	if ( poptrie->nodes[nroot].base0 != poptrie->nodes[oroot].base0
 	 && (u32)-1 != poptrie->nodes[oroot].base0 ) {
-	//Memory free code to be added.
+		//Memory free code to be added.
 	}
 	/* Clear */
 	if ( oroot != nroot ) {
-	//Memory free code to be added.
+		//Memory free code to be added.
 	}
 }
 
@@ -1534,7 +1535,7 @@ _update_clean_node(struct popt_fib_xid_table *poptrie, poptrie_node_t *node, int
 
 	/* Clear */
 	if ( (int)node->base1 != oinode ) {
-	 //Memory free code to be added.
+	 	//Memory free code to be added.
 	}
 }
 static void
@@ -1620,11 +1621,11 @@ _update_clean_subtree(struct popt_fib_xid_table *poptrie, int oinode)
 
 	/* Clear */
 	if ( (int)node->base1 >= 0 ) {
-	//Memory free code to be added.
+		//Memory free code to be added.
 	}
 
 	if ( (int)node->base0 >= 0 ) {
-	//Memory free code to be added.
+		//Memory free code to be added.
 	}
 }
 
@@ -1996,22 +1997,22 @@ _rib_lookup_prefix(struct radix_node160 *node, XID addr, int depth, int height,
     else{
         if(addr.prefix1 >> (temp-160) & 1){
                 if ( NULL == node->right ) {
-                if ( NULL != en ) {
-                    return en->nexthop;
-                } else {
-                    return 0;
-                }
+		        if ( NULL != en ) {
+		            return en->nexthop;
+		        } else {
+		            return 0;
+		        }
             } else {
                 return _rib_lookup_prefix(node->right, addr, depth + 1, height, en);
             }
             }
         else{
              if ( NULL == node->left ) {
-            if ( NULL != en ) {
-                return en->nexthop;
-            } else {
-                return 0;
-            }
+		    if ( NULL != en ) {
+		        return en->nexthop;
+		    } else {
+		        return 0;
+		    }
         } else {
             return _rib_lookup_prefix(node->left, addr, depth + 1, height, en);
         }
@@ -2032,7 +2033,7 @@ _route_del(struct popt_fib_xid_table *poptrie, struct radix_node160 **node,
 	int ret;
 
 	if ( NULL == *node ) {
-	return -1;
+		return -1;
 	}
 
 	if ( len == depth ) {
@@ -2098,13 +2099,13 @@ _route_del_propagate(struct radix_node160 *node, struct radix_node160 *oext,
                      struct radix_node160 *next)
 {
 	if ( oext == node->ext ) {
-	if ( oext->nexthop != EXT_NH(node) ) {
-	    /* Next hop will change */
-	    node->mark = 1;
-	}
-	/* Replace the extracted node */
-	node->ext = next;
-	node->mark = 1;
+		if ( oext->nexthop != EXT_NH(node) ) {
+		    /* Next hop will change */
+		    node->mark = 1;
+		}
+		/* Replace the extracted node */
+		node->ext = next;
+		node->mark = 1;
 	}
 	if ( NULL != node->left ) {
 		node->mark |= _route_del_propagate(node->left, oext, next);
@@ -2560,6 +2561,7 @@ int popt_fib_newroute_lock(struct fib_xid *new_fxid,
 	/* Acquire lock and do exact matching to find @cur_fxid. */
 	id = cfg->xfc_dst->xid_id;
 	XID addr = xid_XID(id);
+	write_lock(&txtbl->writers_lock);
 	cur_fxid = poptrie160_exact_lookup(txtbl, id, new_fxid->fx_entry_type);
 	if (cur_fxid) {
 		if ((cfg->xfc_nlflags & NLM_F_EXCL) ||
@@ -2670,13 +2672,10 @@ out:
 struct fib_xid *popt_fib_get_pred_locked(struct fib_xid_table *xtbl, struct fib_xid *fxid)
 {
 	struct popt_fib_xid_table *txtbl = xtbl_txtbl(xtbl);	
-	read_lock(&txtbl->writers_lock);
 	XID addr = xid_XID(fxid->fx_xid);
 	int height = fxid->fx_entry_type;	
 	struct fib_xid* ret = (struct fib_xid*)txtbl->fib.entries[_rib_lookup_prefix(txtbl->radix, addr, 0, height, NULL)];
-	read_unlock(&txtbl->writers_lock);
 	return ret;
-	//return NULL;
 }
 
 /* Main entries for LPM need to display the prefix length when dumped,
