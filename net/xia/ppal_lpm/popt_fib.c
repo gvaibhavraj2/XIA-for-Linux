@@ -113,21 +113,21 @@ static __inline__ __uint128_t
 INDEX(XID a, int s, int n)
 {
 	if ( 0 == ((s) + (n)) ) { 
-	return 0;
+		return 0;
 	} else {
-	if((160-((s) + (n)))>128){
-	    int temp = (160-((s) + (n)));
-	    a.prefix2 = (__uint128_t)0;
-	    a.prefix1 = a.prefix1 >> (temp-128);
-	    a.prefix2 = (__uint128_t)a.prefix1;
-	    a.prefix1  = (u32)0;
-	    return a.prefix2 & ((1ULL << (n)) - 1);
-	}
-	else {
-	    int temp = (160-((s) + (n)));
-	    a.prefix2 = a.prefix2 >> temp;
-	    return a.prefix2 & ((1ULL << (n)) - 1);
-	}
+		if((160-((s) + (n)))>128){
+		    int temp = (160-((s) + (n)));
+		    a.prefix2 = (__uint128_t)0;
+		    a.prefix1 = a.prefix1 >> (temp-128);
+		    a.prefix2 = (__uint128_t)a.prefix1;
+		    a.prefix1  = (u32)0;
+		    return a.prefix2 & ((1ULL << (n)) - 1);
+		}
+		else {
+		    int temp = (160-((s) + (n)));
+		    a.prefix2 = a.prefix2 >> temp;
+		    return a.prefix2 & ((1ULL << (n)) - 1);
+		}
 
 	}
 }
@@ -210,7 +210,7 @@ bsr(u64 x)
 	u64 r;
 
 	if ( !x ) {
-	return 0;
+		return 0;
 	}
 	__asm__ __volatile__ ( " bsrq %1,%0 " : "=r"(r) : "r"(x) );
 
@@ -219,18 +219,18 @@ bsr(u64 x)
 static int power(int y)
 {
 	if( y == 0)
-	return 1;
+		return 1;
 	else if (y%2 == 0)
-	return power(y/2)*power(y/2);
+		return power(y/2)*power(y/2);
 	else
-	return 2*power(y/2)*power(y/2);
+		return 2*power(y/2)*power(y/2);
 
 }
 static int
 get_new_node(struct popt_fib_xid_table *poptrie,int n)
 {
 	if (poptrie->last_base1 == (1 << poptrie->nodesz))
-	return -1;
+		return -1;
 	u32 temp = poptrie->last_base1;
 	u32 temp1 = poptrie->last_base1;
 	temp+=power(n);
@@ -242,7 +242,7 @@ static int
 get_new_leaf(struct popt_fib_xid_table *poptrie,int n)
 {
 	if (poptrie->last_base0 == (1 << poptrie->leafsz))
-	return -1;
+		return -1;
 	u32 temp = poptrie->last_base0;
 	u32 temp1 = poptrie->last_base0;
 	temp+= power(n);
@@ -318,10 +318,10 @@ poptrie160_route_change(struct popt_fib_xid_table *poptrie, XID prefix, int len,
 	}
 	}
 	if ( i == poptrie->fib.n ) {
-	n = poptrie->fib.n;
-	poptrie->fib.entries[n] = nexthop;
-	poptrie->fib.valid[n] = true;
-	poptrie->fib.n++;
+		n = poptrie->fib.n;
+		poptrie->fib.entries[n] = nexthop;
+		poptrie->fib.valid[n] = true;
+		poptrie->fib.n++;
 	}
 
 	return _route_change(poptrie, &poptrie->radix, prefix, len, n, 0);
@@ -345,18 +345,17 @@ poptrie160_route_update(struct popt_fib_xid_table *poptrie, XID prefix, int len,
 	}
 	}
 	if ( i == poptrie->fib.n ) {
-	n = poptrie->fib.n;
-	poptrie->fib.entries[n] = nexthop;
-	poptrie->fib.valid[n] = true;
-	poptrie->fib.n++;
+		n = poptrie->fib.n;
+		poptrie->fib.entries[n] = nexthop;
+		poptrie->fib.valid[n] = true;
+		poptrie->fib.n++;
 	}
 
 	/* Insert to the radix tree */
 	ret = _route_update(poptrie, &poptrie->radix, prefix, len, n, 0, NULL);
 	if ( ret < 0 ) {
-	return ret;
+		
 	}
-
 	return 0;
 }
 
@@ -376,7 +375,7 @@ poptrie160_route_del(struct popt_fib_xid_table *poptrie, XID prefix, int len)
 	if (ret < 0)		
 		return ret;
 	return 0;
-	//return _route_del(poptrie, &poptrie->radix, prefix, len, 0, NULL);
+	
 }
 
 /*
@@ -397,11 +396,11 @@ poptrie160_lookup(struct popt_fib_xid_table *poptrie, XID addr)
 
 	/* Direct pointing */
 	if ( poptrie->dir[idx] & ((u32)1 << 31) ) {
-	return poptrie->fib.entries[poptrie->dir[idx] & (((u32)1 << 31) - 1)];
+		return poptrie->fib.entries[poptrie->dir[idx] & (((u32)1 << 31) - 1)];
 	} else {
-	base = poptrie->dir[idx];
-	idx = INDEX(addr, pos, 6);
-	pos += 6;
+		base = poptrie->dir[idx];
+		idx = INDEX(addr, pos, 6);
+		pos += 6;
 	}
 
 	for ( ;; ) {
@@ -518,9 +517,9 @@ _update_part(struct popt_fib_xid_table *poptrie, struct radix_node160 *tnode, in
 
 	/* Allocate */
 	#if POPTRIE_S < 6
-	cnodes = kmalloc(sizeof(struct poptrie_node), GFP_ATOMIC);
+		cnodes = kmalloc(sizeof(struct poptrie_node), GFP_ATOMIC);
 	#else
-	cnodes = kmalloc(sizeof(struct poptrie_node) << (POPTRIE_S - 6),
+		cnodes = kmalloc(sizeof(struct poptrie_node) << (POPTRIE_S - 6),
 			GFP_ATOMIC);
 	#endif
 	if ( NULL == cnodes ) {
@@ -530,13 +529,13 @@ _update_part(struct popt_fib_xid_table *poptrie, struct radix_node160 *tnode, in
 	/* Not the root */
 	ret = _update_inode_chunk_rec(poptrie, tnode, inode, cnodes, &sleaf, 0, 0);
 	if ( ret < 0 ) {
-	return -1;
+		return -1;
 	}
 	if ( ret > 0 ) {
-	vcomp = 1;
-	cnodes[0].base0 = -1;
+		vcomp = 1;
+		cnodes[0].base0 = -1;
 	} else {
-	vcomp = 0;
+		vcomp = 0;
 	}
 
 	while ( vcomp && stack->idx >= 0 ) {
@@ -852,7 +851,7 @@ _update_part(struct popt_fib_xid_table *poptrie, struct radix_node160 *tnode, in
 	/* Replace the root */
 	nroot = get_new_leaf(poptrie,0);
 	if ( nroot < 0 ) {
-	return -1;
+		return -1;
 	}
 	memcpy(poptrie->nodes + nroot, cnodes, sizeof(poptrie_node_t));
 	oroot = poptrie->root;
@@ -864,7 +863,7 @@ _update_part(struct popt_fib_xid_table *poptrie, struct radix_node160 *tnode, in
 
 	/* Clean */
 	if ( !alt && !(oroot & ((u32)1<<31)) ) {
-	_update_clean_root(poptrie, nroot, oroot);
+		_update_clean_root(poptrie, nroot, oroot);
 	}
 
 	return 0;
@@ -906,7 +905,7 @@ _update_subtree(struct popt_fib_xid_table *poptrie, struct radix_node160 *node,
 				if ( (poptrie->dir[idx + i] & ((u32)1 << 31))
 					&& !(poptrie->altdir[idx + i] & ((u32)1 << 31)) ) {
 					_update_clean_subtree(poptrie, poptrie->altdir[idx + i]);
-				//Memory free code to be added.
+					//Memory free code to be added.
 				} else if ( !(poptrie->altdir[idx + i] & ((u32)1 << 31)) ) {
 					_update_clean_root(poptrie, poptrie->dir[idx + i], poptrie->altdir[idx + i]);
 				}
@@ -957,71 +956,71 @@ _descend_and_update(struct popt_fib_xid_table *poptrie, struct radix_node160 *tn
 
 	/* Get the corresponding child */
 	if ( 0 == depth ) {
-	width = POPTRIE_S;
+		width = POPTRIE_S;
 	} else {
-	width = 6;
+		width = 6;
 	}
 
 	if ( len <= depth + width ) {
 	/* This is the top of the marked part */
 		return _update_part(poptrie, tnode, inode, stack, root, 0);
 	} else {
-	/* This is not the top of the marked part, then traverse to a child */
-	idx = INDEX(prefix, depth, width);
+		/* This is not the top of the marked part, then traverse to a child */
+		idx = INDEX(prefix, depth, width);
 
-	if ( inode < 0 ) {
-	    //return _update_part(poptrie, tnode, inode, stack, root, 0);
-	    /* The root of the next block */
-	    ntnode = _next_block(tnode, idx, 0, width);
-	    if ( NULL == ntnode ) {
-		return _update_part(poptrie, tnode, inode, stack, root, 0);
-	    } else {
-		stack->inode = inode;
-		stack->idx = idx;
-		stack->width = width;
-		stack->nexthop = EXT_NH(tnode);
-		stack++;
-		return _descend_and_update(poptrie, ntnode, -1, stack, prefix,
-		                           len, depth + width, root);
-	    }
-	}
+		if ( inode < 0 ) {
+		    //return _update_part(poptrie, tnode, inode, stack, root, 0);
+		    /* The root of the next block */
+		    ntnode = _next_block(tnode, idx, 0, width);
+		    if ( NULL == ntnode ) {
+			return _update_part(poptrie, tnode, inode, stack, root, 0);
+		    } else {
+			stack->inode = inode;
+			stack->idx = idx;
+			stack->width = width;
+			stack->nexthop = EXT_NH(tnode);
+			stack++;
+			return _descend_and_update(poptrie, ntnode, -1, stack, prefix,
+				                   len, depth + width, root);
+		    }
+		}
 
-	/* Get the corresponding node */
-	node = poptrie->nodes + inode + NODEINDEX(idx);
+		/* Get the corresponding node */
+		node = poptrie->nodes + inode + NODEINDEX(idx);
 
-	/* Check the vector */
-	if ( VEC_BT(node->vector, BITINDEX(idx)) ) {
-	    /* Internal node, then traverse to the child */
-	    p = POPCNT_LS(node->vector, BITINDEX(idx));
-	    n = (p - 1);
-	    /* The root of the next block */
-	    ntnode = _next_block(tnode, idx, 0, width);
-	    if ( NULL == ntnode ) {
-		return _update_part(poptrie, tnode, inode, stack, root, 0);
-	    } else {
-		stack->inode = inode;
-		stack->idx = idx;
-		stack->width = width;
-		stack++;
-		return _descend_and_update(poptrie, ntnode, node->base1 + n,
-		                           stack, prefix, len, depth + width,
-		                           root);
-	    }
-	} else {
-	    /* Leaf node, then update from this node */
-	    /* The root of the next block */
-	    ntnode = _next_block(tnode, idx, 0, width);
-	    if ( NULL == ntnode ) {
-		return _update_part(poptrie, tnode, inode, stack, root, 0);
-	    } else {
-		stack->inode = inode;
-		stack->idx = idx;
-		stack->width = width;
-		stack++;
-		return _descend_and_update(poptrie, ntnode, -1, stack, prefix,
-		                           len, depth + width, root);
-	    }
-	}
+		/* Check the vector */
+		if ( VEC_BT(node->vector, BITINDEX(idx)) ) {
+		    /* Internal node, then traverse to the child */
+		    p = POPCNT_LS(node->vector, BITINDEX(idx));
+		    n = (p - 1);
+		    /* The root of the next block */
+		    ntnode = _next_block(tnode, idx, 0, width);
+		    if ( NULL == ntnode ) {
+			return _update_part(poptrie, tnode, inode, stack, root, 0);
+		    } else {
+			stack->inode = inode;
+			stack->idx = idx;
+			stack->width = width;
+			stack++;
+			return _descend_and_update(poptrie, ntnode, node->base1 + n,
+				                   stack, prefix, len, depth + width,
+				                   root);
+		    }
+		} else {
+		    /* Leaf node, then update from this node */
+		    /* The root of the next block */
+		    ntnode = _next_block(tnode, idx, 0, width);
+		    if ( NULL == ntnode ) {
+			return _update_part(poptrie, tnode, inode, stack, root, 0);
+		    } else {
+			stack->inode = inode;
+			stack->idx = idx;
+			stack->width = width;
+			stack++;
+			return _descend_and_update(poptrie, ntnode, -1, stack, prefix,
+				                   len, depth + width, root);
+		    }
+		}
 	}
 
 	return 0;
@@ -1080,47 +1079,47 @@ _update_inode_chunk_rec(struct popt_fib_xid_table *poptrie, struct radix_node160
 
 	/* Left */
 	if ( node->left ) {
-	ret0 = _update_inode_chunk_rec(poptrie, node->left, inode, nodes,
+		ret0 = _update_inode_chunk_rec(poptrie, node->left, inode, nodes,
 		                       leaf ? &sleaf0 : NULL, pos, r);
 	if ( ret0 < 0 ) {
 	    return -1;
 	}
 	} else {
-	tmp.left = NULL;
-	tmp.right = NULL;
-	tmp.ext = node->ext;
-	ret0 = _update_inode_chunk_rec(poptrie, &tmp, inode, nodes,
-		                       leaf ? &sleaf0 : NULL, pos, r);
-	if ( ret0 < 0 ) {
-	    return -1;
-	}
+		tmp.left = NULL;
+		tmp.right = NULL;
+		tmp.ext = node->ext;
+		ret0 = _update_inode_chunk_rec(poptrie, &tmp, inode, nodes,
+				               leaf ? &sleaf0 : NULL, pos, r);
+		if ( ret0 < 0 ) {
+		    return -1;
+		}
 	}
 
 	/* Right */
 	if ( node->right ) {
-	ret1 = _update_inode_chunk_rec(poptrie, node->right, inode, nodes,
-		                       leaf ? &sleaf1 : NULL,
-		                       pos + (1 << r), r);
-	if ( ret1 < 0 ) {
-	    return -1;
-	}
+		ret1 = _update_inode_chunk_rec(poptrie, node->right, inode, nodes,
+				               leaf ? &sleaf1 : NULL,
+				               pos + (1 << r), r);
+		if ( ret1 < 0 ) {
+		    return -1;
+		}
 	} else {
-	tmp.left = NULL;
-	tmp.right = NULL;
-	tmp.ext = node->ext;
-	ret1 = _update_inode_chunk_rec(poptrie, &tmp, inode, nodes,
-		                       leaf ? &sleaf1 : NULL,
-		                       pos + (1 << r), r);
-	if ( ret1 < 0 ) {
-	    return -1;
-	}
-	}
-	if ( ret0 > 0 && ret1 > 0 && NULL != leaf && sleaf0 == sleaf1 ) {
-	*leaf = sleaf0;
-	return 1;
-	}
+		tmp.left = NULL;
+		tmp.right = NULL;
+		tmp.ext = node->ext;
+		ret1 = _update_inode_chunk_rec(poptrie, &tmp, inode, nodes,
+				               leaf ? &sleaf1 : NULL,
+				               pos + (1 << r), r);
+		if ( ret1 < 0 ) {
+		    return -1;
+		}
+		}
+		if ( ret0 > 0 && ret1 > 0 && NULL != leaf && sleaf0 == sleaf1 ) {
+			*leaf = sleaf0;
+			return 1;
+		}
 
-	return 0;
+		return 0;
 }
 
 /*
@@ -1228,23 +1227,23 @@ _update_inode(struct popt_fib_xid_table *poptrie, struct radix_node160 *node, in
 	/* Internal nodes */
 	base1 = -1;
 	if ( nvec > 0 ) {
-	p = nvec;
-	base1 = get_new_node(poptrie,bsr(p - 1) + 1);
-	if ( base1 < 0 ) {
-	    return -1;
-	}
+		p = nvec;
+		base1 = get_new_node(poptrie,bsr(p - 1) + 1);
+		if ( base1 < 0 ) {
+		    return -1;
+		}
 	}
 	/* Leaves */
 	base0 = -1;
 	if ( nlvec > 0 ) {
-	p = nlvec;
-	base0 = get_new_leaf(poptrie,bsr(p - 1)+1);
-	if ( base0 < 0 ) {
-	    if ( base1 >= 0 ) {
-		//Memory free code to be added.
-	    }
-	    return -1;
-	}
+		p = nlvec;
+		base0 = get_new_leaf(poptrie,bsr(p - 1)+1);
+		if ( base0 < 0 ) {
+		    if ( base1 >= 0 ) {
+			//Memory free code to be added.
+		    }
+		    return -1;
+		}
 	}
 
 	/* Internal nodes */
@@ -1258,7 +1257,7 @@ _update_inode(struct popt_fib_xid_table *poptrie, struct radix_node160 *node, in
 	}
 	/* Leaves */
 	for ( i = 0; i < nlvec; i++ ) {
-	poptrie->leaves[base0 + i] = leaves[i];
+		poptrie->leaves[base0 + i] = leaves[i];
 	}
 	n->vector = vector;
 	n->leafvec = leafvec;
@@ -1266,10 +1265,10 @@ _update_inode(struct popt_fib_xid_table *poptrie, struct radix_node160 *node, in
 	n->base1 = base1;
 
 	if ( 0 == nvec && 1 == nlvec && NULL != leaf ) {
-	/* Only one leaf belonging to this internal node, then compress
-	   this (but can't do this for the top tier when leaf is NULL) */
-	*leaf = leaves[0];
-	return 1;
+		/* Only one leaf belonging to this internal node, then compress
+		   this (but can't do this for the top tier when leaf is NULL) */
+		*leaf = leaves[0];
+		return 1;
 	}
 
 	return 0;
@@ -1286,7 +1285,7 @@ _update_dp1(struct popt_fib_xid_table *poptrie, struct radix_node160 *tnode, int
 	int idx;
 
 	if ( depth == len ) {
-	return _update_dp2(poptrie, tnode, alt, prefix, len, depth);
+		return _update_dp2(poptrie, tnode, alt, prefix, len, depth);
 	}
 	int temp = 160-depth-1;
 	if(temp<128){
@@ -1398,36 +1397,36 @@ _update_dp2(struct popt_fib_xid_table *poptrie, struct radix_node160 *tnode, int
 	struct poptrie_stack stack[160 / 6 + 1];
 
 	if ( depth == POPTRIE_S ) {
-	idx = INDEX(prefix, 0, POPTRIE_S);
-	stack[0].inode = -1;
-	stack[0].idx = -1;
-	stack[0].width = -1;
+		idx = INDEX(prefix, 0, POPTRIE_S);
+		stack[0].inode = -1;
+		stack[0].idx = -1;
+		stack[0].width = -1;
 
-	if ( poptrie->dir[idx] & ((u32)1 << 31) ) {
-	    if ( alt ) {
-		ret = _update_part(poptrie, tnode, -1, &stack[1],
-		                   &poptrie->altdir[idx], alt);
-	    } else {
-		ret = _update_part(poptrie, tnode, -1, &stack[1],
-		                   &poptrie->dir[idx], alt);
-	    }
-	} else {
-	    if ( alt ) {
-		ret = _update_part(poptrie, tnode, poptrie->dir[idx], &stack[1],
-		                   &poptrie->altdir[idx], alt);
-	    } else {
-		ret = _update_part(poptrie, tnode, poptrie->dir[idx], &stack[1],
-		                   &poptrie->dir[idx], alt);
-	    }
-	}
-	return ret;
+		if ( poptrie->dir[idx] & ((u32)1 << 31) ) {
+		    if ( alt ) {
+			ret = _update_part(poptrie, tnode, -1, &stack[1],
+				           &poptrie->altdir[idx], alt);
+		    } else {
+			ret = _update_part(poptrie, tnode, -1, &stack[1],
+				           &poptrie->dir[idx], alt);
+		    }
+		} else {
+		    if ( alt ) {
+			ret = _update_part(poptrie, tnode, poptrie->dir[idx], &stack[1],
+				           &poptrie->altdir[idx], alt);
+		    } else {
+			ret = _update_part(poptrie, tnode, poptrie->dir[idx], &stack[1],
+				           &poptrie->dir[idx], alt);
+		    }
+		}
+		return ret;
 	}
 
 	if ( tnode->left ) {
-	_update_dp2(poptrie, tnode->left, alt, prefix, len, depth + 1);
+		_update_dp2(poptrie, tnode->left, alt, prefix, len, depth + 1);
 	} else {
-	idx = INDEX(prefix, 0, POPTRIE_S)
-	    >> (POPTRIE_S - depth) << (POPTRIE_S - depth);
+		idx = INDEX(prefix, 0, POPTRIE_S)
+	    		>> (POPTRIE_S - depth) << (POPTRIE_S - depth);
 	for ( i = 0; i < (1 << (POPTRIE_S - depth - 1)); i++ ) {
 	    if ( alt ) {
 		poptrie->altdir[idx + i] = ((u32)1 << 31) | EXT_NH(tnode);
@@ -1441,15 +1440,15 @@ _update_dp2(struct popt_fib_xid_table *poptrie, struct radix_node160 *tnode, int
 	}
 	}
 	if ( tnode->right ) {
-	int temp = 160-depth-1;
-	if(temp<128){
-	    prefix.prefix2 |= 1<< temp;
-	}
-	else{
-	    prefix.prefix1 |= 1<< (temp-128);
-	}
-	//  prefix |= 1 << (128 - depth - 1);
-	return _update_dp2(poptrie, tnode->right, alt, prefix, len, depth + 1);
+		int temp = 160-depth-1;
+		if(temp<128){
+		    prefix.prefix2 |= 1<< temp;
+		}
+		else{
+		    prefix.prefix1 |= 1<< (temp-128);
+		}
+		//  prefix |= 1 << (128 - depth - 1);
+		return _update_dp2(poptrie, tnode->right, alt, prefix, len, depth + 1);
 	} else {
 	idx = INDEX(prefix, 0, POPTRIE_S)
 	    >> (POPTRIE_S - depth)
@@ -1522,7 +1521,7 @@ _update_clean_node(struct popt_fib_xid_table *poptrie, poptrie_node_t *node, int
 	int n;
 
 	if ( oinode < 0 ) {
-	return;
+		return;
 	}
 
 	n = 0;
@@ -1546,27 +1545,27 @@ _update_clean_inode(struct popt_fib_xid_table *poptrie, int ninode, int oinode)
 	int nbase;
 
 	if ( ninode == oinode ) {
-	/* Identical node, then immediately quit from the procedure */
-	return;
+		/* Identical node, then immediately quit from the procedure */
+		return;
 	}
 
 	if ( ninode >= 0 ) {
-	obase = poptrie->nodes[oinode].base1;
-	nbase = poptrie->nodes[ninode].base1;
-	for ( i = 0; i < (1 << 6); i++ ) {
-	    if ( VEC_BT(poptrie->nodes[oinode].vector, i) ) {
-		if ( VEC_BT(poptrie->nodes[ninode].vector, i) ) {
-		    _update_clean_inode(poptrie, nbase, obase);
-		} else {
-		    _update_clean_inode(poptrie, -1, obase);
-		}
-	    }
-	    if ( VEC_BT(poptrie->nodes[oinode].vector, i) ) {
-		obase += 1;
-	    }
-	    if ( VEC_BT(poptrie->nodes[ninode].vector, i) ) {
-		nbase += 1;
-	    }
+		obase = poptrie->nodes[oinode].base1;
+		nbase = poptrie->nodes[ninode].base1;
+		for ( i = 0; i < (1 << 6); i++ ) {
+		    if ( VEC_BT(poptrie->nodes[oinode].vector, i) ) {
+			if ( VEC_BT(poptrie->nodes[ninode].vector, i) ) {
+			    _update_clean_inode(poptrie, nbase, obase);
+			} else {
+			    _update_clean_inode(poptrie, -1, obase);
+			}
+		    }
+		    if ( VEC_BT(poptrie->nodes[oinode].vector, i) ) {
+			obase += 1;
+		    }
+		    if ( VEC_BT(poptrie->nodes[ninode].vector, i) ) {
+			nbase += 1;
+		    }
 	}
 
 	if ( (u32)-1 != poptrie->nodes[oinode].base1
@@ -1578,20 +1577,20 @@ _update_clean_inode(struct popt_fib_xid_table *poptrie, int ninode, int oinode)
 	    //Memory free code to be added.
 	}
 	} else {
-	obase = poptrie->nodes[oinode].base1;
-	for ( i = 0; i < (1 << 6); i++ ) {
-	    if ( VEC_BT(poptrie->nodes[oinode].vector, i) ) {
-		_update_clean_inode(poptrie, -1, obase);
-		obase += 1;
-	    }
-	}
+		obase = poptrie->nodes[oinode].base1;
+		for ( i = 0; i < (1 << 6); i++ ) {
+		    if ( VEC_BT(poptrie->nodes[oinode].vector, i) ) {
+			_update_clean_inode(poptrie, -1, obase);
+			obase += 1;
+		    }
+		}
 
-	if ( (u32)-1 != poptrie->nodes[oinode].base1 ) {
-	    //Memory free code to be added.
-	}
-	if ( (u32)-1 != poptrie->nodes[oinode].base0 ) {
-	    //Memory free code to be added.
-	}
+		if ( (u32)-1 != poptrie->nodes[oinode].base1 ) {
+		    //Memory free code to be added.
+		}
+		if ( (u32)-1 != poptrie->nodes[oinode].base0 ) {
+		    //Memory free code to be added.
+		}
 	}
 }
 
@@ -1606,7 +1605,7 @@ _update_clean_subtree(struct popt_fib_xid_table *poptrie, int oinode)
 	struct poptrie_node *node;
 
 	if ( oinode < 0 ) {
-	return;
+		return;
 	}
 
 	node = &poptrie->nodes[oinode];
@@ -1636,19 +1635,19 @@ static struct radix_node160 *
 _next_block(struct radix_node160 *node, int idx, int shift, int depth)
 {
 	if ( NULL == node ) {
-	return NULL;
+		return NULL;
 	}
 
 	if ( shift == depth ) {
-	return node;
+		return node;
 	}
 
 	if ( (idx >> (depth - shift - 1)) & 0x1 ) {
-	/* Right */
-	return _next_block(node->right, idx, shift + 1, depth);
+		/* Right */
+		return _next_block(node->right, idx, shift + 1, depth);
 	} else {
-	/* Left */
-	return _next_block(node->left, idx, shift + 1, depth);
+		/* Left */
+		return _next_block(node->left, idx, shift + 1, depth);
 	}
 }
 
@@ -1663,13 +1662,13 @@ _parse_triangle(struct radix_node160 *node, u64 *vector,
 	int hlen;
 
 	if ( 6 == depth ) {
-	/* Bottom of the triangle */
-	memcpy(&nodes[pos], node, sizeof(struct radix_node160));
-	if ( node->left || node->right ) {
-	    /* Child internal nodes exist */
-	    VEC_SET(*vector, pos);
-	}
-	return;
+		/* Bottom of the triangle */
+		memcpy(&nodes[pos], node, sizeof(struct radix_node160));
+		if ( node->left || node->right ) {
+		    /* Child internal nodes exist */
+		    VEC_SET(*vector, pos);
+		}
+		return;
 	}
 
 	/* Calculate half length */
@@ -1677,23 +1676,23 @@ _parse_triangle(struct radix_node160 *node, u64 *vector,
 
 	/* Left */
 	if ( node->left ) {
-	_parse_triangle(node->left, vector, nodes, pos, depth + 1);
+		_parse_triangle(node->left, vector, nodes, pos, depth + 1);
 	} else {
-	for ( i = pos; i < pos + hlen; i++ ) {
-	    memcpy(&nodes[i], node, sizeof(struct radix_node160));
-	    nodes[i].left = NULL;
-	    nodes[i].right = NULL;
-	}
+		for ( i = pos; i < pos + hlen; i++ ) {
+		    memcpy(&nodes[i], node, sizeof(struct radix_node160));
+		    nodes[i].left = NULL;
+		    nodes[i].right = NULL;
+		}
 	}
 	/* Right */
 	if ( node->right ) {
-	_parse_triangle(node->right, vector, nodes, pos + hlen, depth + 1);
+		_parse_triangle(node->right, vector, nodes, pos + hlen, depth + 1);
 	} else {
-	for ( i = pos + hlen; i < pos + hlen * 2; i++ ) {
-	    memcpy(&nodes[i], node, sizeof(struct radix_node160));
-	    nodes[i].left = NULL;
-	    nodes[i].right = NULL;
-	}
+		for ( i = pos + hlen; i < pos + hlen * 2; i++ ) {
+		    memcpy(&nodes[i], node, sizeof(struct radix_node160));
+		    nodes[i].left = NULL;
+		    nodes[i].right = NULL;
+		}
 	}
 }
 
@@ -1704,14 +1703,14 @@ static void
 _clear_mark(struct radix_node160 *node)
 {
 	if ( !node->mark ) {
-	return;
+		return;
 	}
 	node->mark = 0;
 	if ( node->left ) {
-	_clear_mark(node->left);
+		_clear_mark(node->left);
 	}
 	if ( node->right ) {
-	_clear_mark(node->right);
+		_clear_mark(node->right);
 	}
 }
 
@@ -1752,7 +1751,6 @@ _route_add(struct popt_fib_xid_table *poptrie, struct radix_node160 **node,
 
 		/* Update the poptrie subtree */
 		*final = *node;
-		//return _update_subtree(poptrie, *node, prefix, depth);
 		return depth;
 	} else {
 		if ((*node)->valid) {
@@ -1796,15 +1794,15 @@ _route_add_propagate(struct radix_node160 *node, struct radix_node160 *ext)
 	    return node->mark;
 	}
 	} else {
-	/* The new route is propagated */
-	node->mark = 1;
-	node->ext = ext;
+		/* The new route is propagated */
+		node->mark = 1;
+		node->ext = ext;
 	}
 	if ( NULL != node->left ) {
-	node->mark |= _route_add_propagate(node->left, ext);
+		node->mark |= _route_add_propagate(node->left, ext);
 	}
 	if ( NULL != node->right ) {
-	node->mark |= _route_add_propagate(node->right, ext);
+		node->mark |= _route_add_propagate(node->right, ext);
 	}
 
 	return node->mark;
@@ -1819,48 +1817,48 @@ _route_change(struct popt_fib_xid_table *poptrie, struct radix_node160 **node,
               XID prefix, int len, poptrie_leaf_t nexthop, int depth)
 {
 	if ( NULL == *node ) {
-	/* Must have the entry for route_change() */
-	return -1;
+		/* Must have the entry for route_change() */
+		return -1;
 	}
 
 	if ( len == depth ) {
-	/* Matched */
-	if ( !(*node)->valid ) {
-	    /* Not exists */
-	    return -1;
-	}
-	/* Update the entry */
-	if ( (*node)->nexthop != nexthop ) {
-	    (*node)->nexthop = nexthop;
-	    (*node)->mark = _route_change_propagate(*node, *node);
+		/* Matched */
+		if ( !(*node)->valid ) {
+		    /* Not exists */
+		    return -1;
+		}
+		/* Update the entry */
+		if ( (*node)->nexthop != nexthop ) {
+		    (*node)->nexthop = nexthop;
+		    (*node)->mark = _route_change_propagate(*node, *node);
 
-	    /* Marked root */
-	    return _update_subtree(poptrie, *node, prefix, depth);
-	}
+		    /* Marked root */
+		    return _update_subtree(poptrie, *node, prefix, depth);
+		}
 
-	return 0;
+		return 0;
 	} else {
-	int temp = 160-depth-1;
-	if(temp<128){
-	    if(prefix.prefix2 >> (temp) & 1){
-		return _route_change(poptrie, &((*node)->right), prefix, len,
-		                 nexthop, depth + 1);
-	    }
-	    else{
-		return _route_change(poptrie, &((*node)->left), prefix, len,
-		                 nexthop, depth + 1);
-	    }    
-	}
-	else{
-	    if(prefix.prefix1 >> (temp-160) & 1){
-		return _route_change(poptrie, &((*node)->right), prefix, len,
-		                 nexthop, depth + 1);
-	    }
-	    else{
-		return _route_change(poptrie, &((*node)->left), prefix, len,
-		                 nexthop, depth + 1);
-	    }    
-	}    
+		int temp = 160-depth-1;
+		if(temp<128){
+		    if(prefix.prefix2 >> (temp) & 1){
+			return _route_change(poptrie, &((*node)->right), prefix, len,
+				         nexthop, depth + 1);
+		    }
+		    else{
+			return _route_change(poptrie, &((*node)->left), prefix, len,
+				         nexthop, depth + 1);
+		    }    
+		}
+		else{
+		    if(prefix.prefix1 >> (temp-160) & 1){
+			return _route_change(poptrie, &((*node)->right), prefix, len,
+				         nexthop, depth + 1);
+		    }
+		    else{
+			return _route_change(poptrie, &((*node)->left), prefix, len,
+				         nexthop, depth + 1);
+		    }    
+		}    
 
 	}
 }
@@ -1870,14 +1868,14 @@ _route_change_propagate(struct radix_node160 *node, struct radix_node160 *ext)
 {
 	/* Mark if the cache is updated */
 	if ( ext == node->ext ) {
-	node->mark = 1;
+		node->mark = 1;
 	}
 
 	if ( NULL != node->left ) {
-	node->mark |= _route_change_propagate(node->left, ext);
+		node->mark |= _route_change_propagate(node->left, ext);
 	}
 	if ( NULL != node->right ) {
-	node->mark |= _route_change_propagate(node->right, ext);
+		node->mark |= _route_change_propagate(node->right, ext);
 	}
 
 	return node->mark;
@@ -1893,10 +1891,10 @@ _route_update(struct popt_fib_xid_table *poptrie, struct radix_node160 **node,
               struct radix_node160 *ext)
 {
 	if ( NULL == *node ) {
-	*node = kmalloc(sizeof(struct radix_node160), GFP_ATOMIC);
+		*node = kmalloc(sizeof(struct radix_node160), GFP_ATOMIC);
 	if ( NULL == *node ) {
-	    /* Memory error */
-	    return -1;
+	     	/* Memory error */
+	    	return -1;
 	}
 	(*node)->valid = 0;
 	(*node)->left = NULL;
@@ -2052,17 +2050,7 @@ _route_del(struct popt_fib_xid_table *poptrie, struct radix_node160 **node,
 		
 		*final = *node;			
 		return depth;
-		/* Marked root */
-		//ret = _update_subtree(poptrie, *node, prefix, depth);
-	//	if ( ret < 0 ) {
-		//    return -1;
-	//	}
-
-		/* May need to delete this node if both children are empty, but we
-		   not care in this implementation because we have a large amount
-		   memory and the unused memory do not affect the performance. */
-
-		//return 0;
+	
 	} else {
 	/* Update the propagate node if valid */
 	if ( (*node)->valid ) {
@@ -2119,10 +2107,10 @@ _route_del_propagate(struct radix_node160 *node, struct radix_node160 *oext,
 	node->mark = 1;
 	}
 	if ( NULL != node->left ) {
-	node->mark |= _route_del_propagate(node->left, oext, next);
+		node->mark |= _route_del_propagate(node->left, oext, next);
 	}
 	if ( NULL != node->right ) {
-	node->mark |= _route_del_propagate(node->right, oext, next);
+		node->mark |= _route_del_propagate(node->right, oext, next);
 	}
 
 	return node->mark;
@@ -2136,10 +2124,10 @@ _rib_lookup(struct radix_node160 *node, XID addr, int depth,
             struct radix_node160 *en)
 {
 	if ( NULL == node ) {
-	return 0;
+		return 0;
 	}
 	if ( node->valid ) {
-	en = node;
+		en = node;
 	}
 	int temp = 160-depth-1;
 	if(temp<128){
@@ -2169,22 +2157,22 @@ _rib_lookup(struct radix_node160 *node, XID addr, int depth,
 	else{
 	if(addr.prefix1 >> (temp-160) & 1){
 		if ( NULL == node->right ) {
-		if ( NULL != en ) {
-		    return en->nexthop;
-		} else {
-		    return 0;
-		}
+			if ( NULL != en ) {
+			    return en->nexthop;
+			} else {
+			    return 0;
+			}
 	    } else {
 		return _rib_lookup(node->right, addr, depth + 1, en);
 	    }
 	    }
 	else{
 	     if ( NULL == node->left ) {
-	    if ( NULL != en ) {
-		return en->nexthop;
-	    } else {
-		return 0;
-	    }
+		    if ( NULL != en ) {
+			return en->nexthop;
+		    } else {
+			return 0;
+		    }
 	} else {
 	    return _rib_lookup(node->left, addr, depth + 1, en);
 	}
@@ -2201,9 +2189,9 @@ static void
 _release_radix160(struct radix_node160 *node)
 {
 	if ( NULL != node  ) {
-	_release_radix160(node->left);
-	_release_radix160(node->right);
-	kfree(node);
+		_release_radix160(node->left);
+		_release_radix160(node->right);
+		kfree(node);
     }
 }
 
@@ -2217,51 +2205,32 @@ poptrie160_release(struct popt_fib_xid_table *poptrie)
 	_release_radix160(poptrie->radix);
 
 	if ( poptrie->nodes ) {
-	vfree(poptrie->nodes);
+		vfree(poptrie->nodes);
 	}
 	if ( poptrie->leaves ) {
-	vfree(poptrie->leaves);
+		vfree(poptrie->leaves);
 	}
 	if ( poptrie->cnodes ) {
-	vfree(poptrie->cnodes);
+		vfree(poptrie->cnodes);
 	}
 	if ( poptrie->cleaves ) {
-	vfree(poptrie->cleaves);
+		vfree(poptrie->cleaves);
 	}
 	if ( poptrie->dir ) {
-	vfree(poptrie->dir);
+		vfree(poptrie->dir);
 	}
 	if ( poptrie->altdir ) {
-	vfree(poptrie->altdir);
+		vfree(poptrie->altdir);
 	}
 	if ( poptrie->fib.entries ) {
-	vfree(poptrie->fib.entries);
+		vfree(poptrie->fib.entries);
 	}
 	if ( poptrie->_allocated ) {
-	vfree(poptrie);
+		vfree(poptrie);
 	}
 }
 
-/*
-static inline struct fib_xid *tfxid_fxid(struct tree_fib_xid *tfxid)
-{
-	return likely(tfxid)
-		? container_of((void *)tfxid, struct fib_xid, fx_data)
-		: NULL;
-}
 
-static inline struct tree_fib_xid *fxid_tfxid(struct fib_xid *fxid)
-{
-	return (struct tree_fib_xid *)fxid->fx_data;
-}
-
-static inline struct fib_xid_table *txtbl_xtbl(struct tree_fib_xid_table *txtbl)
-{
-	return likely(txtbl)
-		? container_of((void *)txtbl, struct fib_xid_table, fxt_data)
-		: NULL;
-}
-*/
 static inline struct popt_fib_xid_table *xtbl_txtbl(struct fib_xid_table *xtbl)
 {
 	return (struct popt_fib_xid_table *)xtbl->fxt_data;
@@ -2305,73 +2274,73 @@ static int popt_xtbl_init(struct xip_ppal_ctx *ctx, struct net *net,
 
 
 	if ( NULL == txtbl ) {
-	/* Allocate new one */
-	txtbl = kmalloc(sizeof(struct popt_fib_xid_table), GFP_ATOMIC);
-	if ( NULL == txtbl ) {
-	    return NULL;
-	}
-	(void)memset(txtbl, 0, sizeof(struct popt_fib_xid_table));
-	/* Set the flag indicating that this data structure needs vfree() when
-	   released. */
-	txtbl->_allocated = 1;
+		/* Allocate new one */
+		txtbl = kmalloc(sizeof(struct popt_fib_xid_table), GFP_ATOMIC);
+		if ( NULL == txtbl ) {
+		    return NULL;
+		}
+		(void)memset(txtbl, 0, sizeof(struct popt_fib_xid_table));
+		/* Set the flag indicating that this data structure needs vfree() when
+		   released. */
+		txtbl->_allocated = 1;
 	} else {
-	/* Write zero's */
-	(void)memset(txtbl, 0, sizeof(struct popt_fib_xid_table));
+		/* Write zero's */
+		(void)memset(txtbl, 0, sizeof(struct popt_fib_xid_table));
 	}
 
 	/* Allocate the nodes and leaves */
 	txtbl->nodes =vmalloc(sizeof(poptrie_node_t) * (1 << XIA_POPT_SZ1));
 	if ( NULL == txtbl->nodes ) {
-	poptrie160_release(txtbl);
-	return NULL;
+		poptrie160_release(txtbl);
+		return NULL;
 	}
 	txtbl->nodesz = XIA_POPT_SZ1;
 	txtbl->leaves =vmalloc(sizeof(poptrie_leaf_t) * (1 << XIA_POPT_SZ0));
 	if ( NULL == txtbl->leaves ) {
-	poptrie160_release(txtbl);
-	return NULL;
+		poptrie160_release(txtbl);
+		return NULL;
 	}
 	txtbl->leafsz = XIA_POPT_SZ0;
 
 	/* Prepare the memory management system for the internal node array */
 	txtbl->cnodes =vmalloc(sizeof(*txtbl->cnodes) * (1 << XIA_POPT_SZ1));
 	if ( NULL == txtbl->cnodes ) {
-	poptrie160_release(txtbl);
-	return NULL;
+		poptrie160_release(txtbl);
+		return NULL;
 	}
 	txtbl->last_base1 = 0;
 
 	/* Prepare the memory management system for the leaf node array */
 	txtbl->cleaves =vmalloc(sizeof(*txtbl->cleaves) * (1 << XIA_POPT_SZ0));
 	if ( NULL == txtbl->cleaves ) {
-	poptrie160_release(txtbl);
-	return NULL;
+		poptrie160_release(txtbl);
+		return NULL;
 	}
 	txtbl->last_base0 = 0;
 
 	/* Prepare the direct pointing array */
 	txtbl->dir =vmalloc(sizeof(u32) << POPTRIE_S);
 	if ( NULL == txtbl->dir ) {
-	poptrie160_release(txtbl);
-	return NULL;
+		poptrie160_release(txtbl);
+		return NULL;
 	}
 	for ( i = 0; i < (1 << POPTRIE_S); i++ ) {
-	txtbl->dir[i] = (u32)1 << 31;
+		txtbl->dir[i] = (u32)1 << 31;
 	}
 
 	/* Prepare the alternative direct pointing array for the update procedure */
 	txtbl->altdir =vmalloc(sizeof(u32) << POPTRIE_S);
 	if ( NULL == txtbl->altdir ) {
-	poptrie160_release(txtbl);
-	return NULL;
+		poptrie160_release(txtbl);
+		return NULL;
 	}
 
 	/* Prepare the FIB mapping table */
 	txtbl->fib.entries =vmalloc(sizeof(void *) * POPTRIE_INIT_FIB_SIZE);
 	txtbl->fib.valid = vmalloc(sizeof(bool) * POPTRIE_INIT_FIB_SIZE);
 	if ( NULL == txtbl->fib.entries ) {
-	poptrie160_release(txtbl);
-	return NULL;
+		poptrie160_release(txtbl);
+		return NULL;
 	}
 	txtbl->fib.sz = POPTRIE_INIT_FIB_SIZE;
 	txtbl->fib.n = 0;
@@ -2539,7 +2508,6 @@ static void popt_fxid_replace_locked(struct fib_xid_table *xtbl,
 				     struct fib_xid *old_fxid,
 				     struct fib_xid *new_fxid)
 {
-	//Replacement by deleting the previous entry and adding the new 
 	struct popt_fib_xid_table *txtbl = xtbl_txtbl(xtbl);
 	XID addr_old = xid_XID(old_fxid->fx_xid);
 	XID addr_new = xid_XID(new_fxid->fx_xid);
