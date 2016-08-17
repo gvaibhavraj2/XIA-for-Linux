@@ -147,7 +147,8 @@ INDEX(XID a, int s, int n)
 /* Prototype declarations */
 static int
 _route_add(struct popt_fib_xid_table *, struct radix_node160 **, XID, int,
-           poptrie_leaf_t, int, struct radix_node160 *);
+           poptrie_leaf_t, int, struct radix_node160 *,
+	   struct radix_node160 **);
 static int _route_add_propagate(struct radix_node160 *, struct radix_node160 *);
 static int
 _update_part(struct popt_fib_xid_table *, struct radix_node160 *, int,
@@ -189,7 +190,7 @@ _route_update(struct popt_fib_xid_table *, struct radix_node160 **, XID, int,
               poptrie_leaf_t, int, struct radix_node160 *);
 static int
 _route_del(struct popt_fib_xid_table *, struct radix_node160 **, XID, int, int,
-           struct radix_node160 *);
+           struct radix_node160 *, struct radix_node160 **);
 static int
 _route_del_propagate(struct radix_node160 *, struct radix_node160 *,
                      struct radix_node160 *);
@@ -254,39 +255,47 @@ get_new_leaf(struct popt_fib_xid_table *poptrie,int n)
  */
 int
 poptrie160_route_add(struct popt_fib_xid_table *poptrie, XID prefix, int len,
-                   void *nexthop)
+		     void *nexthop)
 {
+	struct radix_node160 *final;
 	int ret;
 	int i;
 	int n;
 
 	/* Find the FIB entry mapping first */
-	for ( i = 0; i < poptrie->fib.n; i++ ) {
-	if ( poptrie->fib.entries[i] == nexthop && poptrie->fib.valid[i] ) {
-	    /* Found the matched entry */
-	    n = i;
-	    break;
-	}
-	}
-	if ( i == poptrie->fib.n ) {
-	/* No matching FIB entry was found */
-	if ( poptrie->fib.n >= poptrie->fib.sz ) {
-	    /* The FIB mapping table is full */
-	    return -1;
-	}
-	/* Append new FIB entry */
-	n = poptrie->fib.n;
-	poptrie->fib.entries[n] = nexthop;
-	poptrie->fib.valid[n] = true;
-	poptrie->fib.n++;
+	for (i = 0; i < poptrie->fib.n; i++) {
+		if (poptrie->fib.entries[i] == nexthop &&
+		    poptrie->fib.valid[i]) {
+			/* Found the matched entry */
+			n = i;
+			break;
+		}
 	}
 
-	/* Insert the prefix to the radix tree, then incrementally update the
-	poptrie data structure */
-	ret = _route_add(poptrie, &poptrie->radix, prefix, len, n, 0, NULL);
-	if ( ret < 0 ) {
-	return ret;
+	if (i == poptrie->fib.n) {
+		/* No matching FIB entry was found */
+		if (poptrie->fib.n >= poptrie->fib.sz) {
+		/* The FIB mapping table is full */
+			return -1;
+		}
+
+		/* Append new FIB entry */
+		n = poptrie->fib.n;
+		poptrie->fib.entries[n] = nexthop;
+		poptrie->fib.valid[n] = true;
+		poptrie->fib.n++;
 	}
+
+	/* Insert the prefix to the radix tree, then
+	 * incrementally update the poptrie data structure.
+	 */
+	ret = _route_add(poptrie, &poptrie->radix, prefix, len, n, 0, NULL,
+			 &final);
+	if (ret < 0)
+		return ret;
+	ret = _update_subtree(poptrie, final, prefix, ret);
+	if (ret < 0)
+		return ret;
 
 	return 0;
 }
@@ -359,7 +368,15 @@ int
 poptrie160_route_del(struct popt_fib_xid_table *poptrie, XID prefix, int len)
 {
 	/* Search and delete the corresponding entry */
-	return _route_del(poptrie, &poptrie->radix, prefix, len, 0, NULL);
+	struct radix_node160 *final;
+	int ret = _route_del(poptrie, &poptrie->radix, prefix, len, 0, NULL, &final);
+	if (ret < 0)		
+		return ret;		
+	ret = _update_subtree(poptrie, final, prefix, ret);		
+	if (ret < 0)		
+		return ret;
+	return 0;
+	//return _route_del(poptrie, &poptrie->radix, prefix, len, 0, NULL);
 }
 
 /*
@@ -450,62 +467,64 @@ _update_part(struct popt_fib_xid_table *poptrie, struct radix_node160 *tnode, in
 
 	/* Build the updated part */
 	if ( stack->idx < 0 ) {
-	cnodes = vmalloc(sizeof(struct poptrie_node));
-	if ( NULL == cnodes ) {
-	    return -1;
-	}
-	ret = _update_inode_chunk_rec(poptrie, tnode, inode, cnodes, &sleaf, 0,
-		                      0);
-	if ( ret < 0 ) {
-	    return -1;
-	}
-	if ( ret > 0 ) {
-	    /* Clean */
-	    cnodes[0].base0 = -1;
-
-	    /* Replace the root with an atomic instruction */
-	    nroot = ((u32)1 << 31) | sleaf;
-	    __asm__ __volatile__ ("lock xchgl %%eax,%0"
-		                  : "=m"(*root), "=a"(oroot) : "a"(nroot));
-	    if ( !alt ) {
-		_update_clean_subtree(poptrie, oroot);
-		if ( (int)oroot >= 0 ) {
-			//Memory free code to be added.
+		cnodes = kmalloc(sizeof(struct poptrie_node), GFP_ATOMIC);
+		if ( NULL == cnodes ) {
+		    return -1;
 		}
-	    }
 
-	    return 0;
-	}
+		ret = _update_inode_chunk_rec(poptrie, tnode, inode, cnodes, &sleaf, 0,
+		                      0);
+		if ( ret < 0 ) {
+		    return -1;
+		}
+		if ( ret > 0 ) {
+		    /* Clean */
+		    cnodes[0].base0 = -1;
 
-	/* Replace the root */
-	nroot = get_new_node(poptrie,0);
-	if ( nroot < 0 ) {
-	    return -1;
-	}
-	memcpy(poptrie->nodes + nroot, cnodes, sizeof(struct poptrie_node));
-	oroot = poptrie->root;
-	poptrie->root = nroot;
+		    /* Replace the root with an atomic instruction */
+		    nroot = ((u32)1 << 31) | sleaf;
+		    __asm__ __volatile__ ("lock xchgl %%eax,%0"
+		                  : "=m"(*root), "=a"(oroot) : "a"(nroot));
+		    if ( !alt ) {
+			_update_clean_subtree(poptrie, oroot);
+			if ( (int)oroot >= 0 ) {
+				//Memory free code to be added.
+			}
+		    }
 
-	/* Replace the root with an atomic instruction */
-	__asm__ __volatile__ ("lock xchgl %%eax,%0"
+		    return 0;
+		}
+
+		/* Replace the root */
+		nroot = get_new_node(poptrie,0);
+		if ( nroot < 0 ) {
+		    return -1;
+		}
+		memcpy(poptrie->nodes + nroot, cnodes, sizeof(struct poptrie_node));
+		oroot = poptrie->root;
+		poptrie->root = nroot;
+
+		/* Replace the root with an atomic instruction */
+		__asm__ __volatile__ ("lock xchgl %%eax,%0"
 		              : "=m"(*root), "=a"(oroot) : "a"(nroot));
 
-	/* Clean */
-	if ( !alt && !(oroot & ((u32)1 << 31)) ) {
-	    _update_clean_root(poptrie, nroot, oroot);
-	}
+		/* Clean */
+		if ( !alt && !(oroot & ((u32)1 << 31)) ) {
+		    _update_clean_root(poptrie, nroot, oroot);
+		}
 
-	return 0;
+		return 0;
 	}
 
 	/* Allocate */
 	#if POPTRIE_S < 6
-	cnodes = vmalloc(sizeof(struct poptrie_node));
+	cnodes = kmalloc(sizeof(struct poptrie_node), GFP_ATOMIC);
 	#else
-	cnodes = vmalloc(sizeof(struct poptrie_node) << (POPTRIE_S - 6));
+	cnodes = kmalloc(sizeof(struct poptrie_node) << (POPTRIE_S - 6),
+			GFP_ATOMIC);
 	#endif
 	if ( NULL == cnodes ) {
-	return -1;
+		return -1;
 	}
 
 	/* Not the root */
@@ -870,50 +889,49 @@ _update_subtree(struct popt_fib_xid_table *poptrie, struct radix_node160 *node,
 	stack[0].width = -1;
 
 	if ( depth < POPTRIE_S ) {
-	/* Copy first */
-	memcpy(poptrie->altdir, poptrie->dir, sizeof(u32) << POPTRIE_S);
-	ret = _update_dp1(poptrie, poptrie->radix, 1, prefix, depth, 0);
+		/* Copy first */
+		memcpy(poptrie->altdir, poptrie->dir, sizeof(u32) << POPTRIE_S);
+		ret = _update_dp1(poptrie, poptrie->radix, 1, prefix, depth, 0);
 
-	/* Replace the root */
-	tmpdir = poptrie->dir;
-	poptrie->dir = poptrie->altdir;
-	poptrie->altdir = tmpdir;
+		/* Replace the root */
+		tmpdir = poptrie->dir;
+		poptrie->dir = poptrie->altdir;
+		poptrie->altdir = tmpdir;
 
-	/* Clean */
-	idx = INDEX(prefix, 0, POPTRIE_S)
-	    >> (POPTRIE_S - depth)
-	    << (POPTRIE_S - depth);
-	for ( i = 0; i < (1 << (POPTRIE_S - depth)); i++ ) {
-	    if ( poptrie->dir[idx + i] != poptrie->altdir[idx + i] ) {
-		if ( (poptrie->dir[idx + i] & ((u32)1 << 31))
-		     && !(poptrie->altdir[idx + i] & ((u32)1 << 31)) ) {
-		    _update_clean_subtree(poptrie, poptrie->altdir[idx + i]);
-		    //Memory free code to be added.
-		} else if ( !(poptrie->altdir[idx + i] & ((u32)1 << 31)) ) {
-		    _update_clean_root(poptrie, poptrie->dir[idx + i],
-		                       poptrie->altdir[idx + i]);
+		/* Clean */
+		idx = INDEX(prefix, 0, POPTRIE_S) >> (POPTRIE_S - depth) << (POPTRIE_S - depth);
+		for ( i = 0; i < (1 << (POPTRIE_S - depth)); i++ ) {
+			if (poptrie->dir[idx + i] !=
+			    poptrie->altdir[idx + i] ) {
+				if ( (poptrie->dir[idx + i] & ((u32)1 << 31))
+					&& !(poptrie->altdir[idx + i] & ((u32)1 << 31)) ) {
+					_update_clean_subtree(poptrie, poptrie->altdir[idx + i]);
+				//Memory free code to be added.
+				} else if ( !(poptrie->altdir[idx + i] & ((u32)1 << 31)) ) {
+					_update_clean_root(poptrie, poptrie->dir[idx + i], poptrie->altdir[idx + i]);
+				}
+			}
 		}
-	    }
-	}
 	} else if ( depth == POPTRIE_S ) {
-	ret = _update_dp1(poptrie, poptrie->radix, 0, prefix, depth, 0);
+		ret = _update_dp1(poptrie, poptrie->radix, 0, prefix, depth, 0);
 	} else {
-	idx = INDEX(prefix, 0, POPTRIE_S);
-	ntnode = _next_block(poptrie->radix, idx, 0, POPTRIE_S);
-	/* Get the corresponding node */
-	if ( poptrie->dir[idx] & ((u32)1 << 31) ) {
-	    /* Leaf */
-	    ret = _descend_and_update(poptrie, ntnode, -1, &stack[1], prefix,
+		idx = INDEX(prefix, 0, POPTRIE_S);
+		ntnode = _next_block(poptrie->radix, idx, 0, POPTRIE_S);
+		/* Get the corresponding node */
+		if ( poptrie->dir[idx] & ((u32)1 << 31) ) {
+			/* Leaf */
+			ret = _descend_and_update(poptrie, ntnode, -1, &stack[1], prefix,
 		                      depth, POPTRIE_S, &poptrie->dir[idx]);
-	} else {
-	    /* Node */
-	    ret = _descend_and_update(poptrie, ntnode, poptrie->dir[idx],
+		} else {
+			/* Node */
+			ret = _descend_and_update(poptrie, ntnode, poptrie->dir[idx],
 		                      &stack[1], prefix, depth, POPTRIE_S,
 		                      &poptrie->dir[idx]);
+		}
 	}
-	}
+
 	if ( ret < 0 ) {
-	return -1;
+		return -1;
 	}
 
 	/* Clear marks */
@@ -946,13 +964,13 @@ _descend_and_update(struct popt_fib_xid_table *poptrie, struct radix_node160 *tn
 
 	if ( len <= depth + width ) {
 	/* This is the top of the marked part */
-	return _update_part(poptrie, tnode, inode, stack, root, 0);
+		return _update_part(poptrie, tnode, inode, stack, root, 0);
 	} else {
 	/* This is not the top of the marked part, then traverse to a child */
 	idx = INDEX(prefix, depth, width);
 
 	if ( inode < 0 ) {
-	    return _update_part(poptrie, tnode, inode, stack, root, 0);
+	    //return _update_part(poptrie, tnode, inode, stack, root, 0);
 	    /* The root of the next block */
 	    ntnode = _next_block(tnode, idx, 0, width);
 	    if ( NULL == ntnode ) {
@@ -1704,56 +1722,58 @@ _clear_mark(struct radix_node160 *node)
 static int
 _route_add(struct popt_fib_xid_table *poptrie, struct radix_node160 **node,
            XID prefix, int len, poptrie_leaf_t nexthop, int depth,
-           struct radix_node160 *ext)
+           struct radix_node160 *ext, struct radix_node160 **final)
 {
-	if ( NULL == *node ) {
-	*node =vmalloc(sizeof(struct radix_node160));
-	if ( NULL == *node ) {
-	    /* Memory error */
-	    return -1;
-	}
-	(*node)->valid = 0;
-	(*node)->left = NULL;
-	(*node)->right = NULL;
-	(*node)->ext = ext;
-	(*node)->mark = 0;
+	if (NULL == *node) {
+		*node = kmalloc(sizeof(struct radix_node160), GFP_ATOMIC);
+		if (NULL == *node) {
+			/* Memory error */
+			return -1;
+		}
+		(*node)->valid = 0;
+		(*node)->left = NULL;
+		(*node)->right = NULL;
+		(*node)->ext = ext;
+		(*node)->mark = 0;
 	}
 
-	if ( len == depth ) {
-	/* Matched */
-	if ( (*node)->valid ) {
-	    /* Already exists */
-	    return -1;
-	}
-	(*node)->valid = 1;
-	(*node)->nexthop = nexthop;
-	(*node)->len = len;
+	if (len == depth) {
+		/* Matched */
+		if ((*node)->valid) {
+			/* Already exists */
+			return -1;
+		}
+		(*node)->valid = 1;
+		(*node)->nexthop = nexthop;
+		(*node)->len = len;
 
-	/* Propagate this route to children */
-	(*node)->mark = _route_add_propagate(*node, *node);
+		/* Propagate this route to children */
+		(*node)->mark = _route_add_propagate(*node, *node);
 
-	/* Update the poptrie subtree */
-	return _update_subtree(poptrie, *node, prefix, depth);
+		/* Update the poptrie subtree */
+		*final = *node;
+		//return _update_subtree(poptrie, *node, prefix, depth);
+		return depth;
 	} else {
-	if ( (*node)->valid ) {
-	    ext = *node;
-	}
+		if ((*node)->valid) {
+			ext = *node;
+		}
 	int temp = 160-depth-1;
 	if(temp<128){
 	    if(prefix.prefix2 >> (temp) & 1)
 		return _route_add(poptrie, &((*node)->right), prefix, len, nexthop,
-		              depth + 1, ext);
+		              depth + 1, ext, final);
 	    else
 	    return _route_add(poptrie, &((*node)->left), prefix, len, nexthop,
-		              depth + 1, ext);
+		              depth + 1, ext, final);
 	}
 	else{
 	    if(prefix.prefix1 >> (temp-160) & 1)
 		return _route_add(poptrie, &((*node)->right), prefix, len, nexthop,
-		              depth + 1, ext);
+		              depth + 1, ext, final);
 	    else
 		return _route_add(poptrie, &((*node)->left), prefix, len, nexthop,
-		              depth + 1, ext);
+		              depth + 1, ext, final);
 	}
 
 	}
@@ -1873,7 +1893,7 @@ _route_update(struct popt_fib_xid_table *poptrie, struct radix_node160 **node,
               struct radix_node160 *ext)
 {
 	if ( NULL == *node ) {
-	*node =vmalloc(sizeof(struct radix_node160));
+	*node = kmalloc(sizeof(struct radix_node160), GFP_ATOMIC);
 	if ( NULL == *node ) {
 	    /* Memory error */
 	    return -1;
@@ -2009,7 +2029,7 @@ _rib_lookup_prefix(struct radix_node160 *node, XID addr, int depth, int height,
  
 static int
 _route_del(struct popt_fib_xid_table *poptrie, struct radix_node160 **node,
-           XID prefix, int len, int depth, struct radix_node160 *ext)
+           XID prefix, int len, int depth, struct radix_node160 *ext, struct radix_node160 **final)
 {
 	int ret;
 
@@ -2029,18 +2049,20 @@ _route_del(struct popt_fib_xid_table *poptrie, struct radix_node160 **node,
 		/* Invalidate the node */
 		(*node)->valid = 0;
 		(*node)->nexthop = 0;
-
+		
+		*final = *node;			
+		return depth;
 		/* Marked root */
-		ret = _update_subtree(poptrie, *node, prefix, depth);
-		if ( ret < 0 ) {
-		    return -1;
-		}
+		//ret = _update_subtree(poptrie, *node, prefix, depth);
+	//	if ( ret < 0 ) {
+		//    return -1;
+	//	}
 
 		/* May need to delete this node if both children are empty, but we
 		   not care in this implementation because we have a large amount
 		   memory and the unused memory do not affect the performance. */
 
-		return 0;
+		//return 0;
 	} else {
 	/* Update the propagate node if valid */
 	if ( (*node)->valid ) {
@@ -2051,21 +2073,21 @@ _route_del(struct popt_fib_xid_table *poptrie, struct radix_node160 **node,
 	if(temp<128){
 	    if(prefix.prefix2 >> (temp) & 1){
 		ret = _route_del(poptrie, &((*node)->right), prefix, len, depth + 1,
-		             ext);
+		             ext, final);
 	    }
 	    else{
 		ret = _route_del(poptrie, &((*node)->left), prefix, len, depth + 1,
-		             ext);
+		             ext, final);
 	    }
 	    }
 	else{
 	    if(prefix.prefix1 >> (temp-160) & 1){
 		ret = _route_del(poptrie, &((*node)->right), prefix, len, depth + 1,
-		             ext);
+		             ext, final);
 	    }
 	    else{
 		ret = _route_del(poptrie, &((*node)->left), prefix, len, depth + 1,
-		             ext);
+		             ext, final);
 	    }    
 	}        
 
@@ -2074,7 +2096,7 @@ _route_del(struct popt_fib_xid_table *poptrie, struct radix_node160 **node,
 	}
 	/* Delete this node if both children are empty */
 	if ( NULL == (*node)->left && NULL == (*node)->right ) {
-	    vfree(*node);
+	    kfree(*node);
 	    *node = NULL;
 	}
 	return ret;
@@ -2181,7 +2203,7 @@ _release_radix160(struct radix_node160 *node)
 	if ( NULL != node  ) {
 	_release_radix160(node->left);
 	_release_radix160(node->right);
-	vfree(node);
+	kfree(node);
     }
 }
 
@@ -2273,7 +2295,6 @@ static int popt_xtbl_init(struct xip_ppal_ctx *ctx, struct net *net,
 	int ret;
 	int i;
 
-	printk(KERN_ALERT "in popt_xtbl_init()\n");
 	if (ctx->xpc_xtbl)
 		return -EEXIST; /* Duplicate. */
 
@@ -2285,7 +2306,7 @@ static int popt_xtbl_init(struct xip_ppal_ctx *ctx, struct net *net,
 
 	if ( NULL == txtbl ) {
 	/* Allocate new one */
-	txtbl =vmalloc(sizeof(struct popt_fib_xid_table));
+	txtbl = kmalloc(sizeof(struct popt_fib_xid_table), GFP_ATOMIC);
 	if ( NULL == txtbl ) {
 	    return NULL;
 	}
@@ -2347,7 +2368,7 @@ static int popt_xtbl_init(struct xip_ppal_ctx *ctx, struct net *net,
 
 	/* Prepare the FIB mapping table */
 	txtbl->fib.entries =vmalloc(sizeof(void *) * POPTRIE_INIT_FIB_SIZE);
-	txtbl->fib.valid = vmalloc(sizeof(bool));
+	txtbl->fib.valid = vmalloc(sizeof(bool) * POPTRIE_INIT_FIB_SIZE);
 	if ( NULL == txtbl->fib.entries ) {
 	poptrie160_release(txtbl);
 	return NULL;
@@ -2380,9 +2401,6 @@ static void *popt_fxid_ppal_alloc(size_t ppal_entry_size, gfp_t flags)
 
 static void popt_fxid_init(struct fib_xid *fxid, int table_id, int entry_type)
 {
-	printk(KERN_ALERT "Inside fxid_init %d", 1);
-	printk(KERN_ALERT"TableID %d",table_id);
-	printk(KERN_ALERT "entry %d", entry_type);
 	BUILD_BUG_ON(XRTABLE_MAX_INDEX >= 0x100);
 	BUG_ON(table_id >= XRTABLE_MAX_INDEX);
 	fxid->fx_table_id = table_id;
@@ -2398,7 +2416,6 @@ static void popt_fxid_init(struct fib_xid *fxid, int table_id, int entry_type)
 
 static void popt_xtbl_death_work(struct work_struct *work)
 {
-	printk(KERN_ALERT "Inside deathWork\n");
 	struct fib_xid_table *xtbl = container_of(work, struct fib_xid_table,
 		fxt_death_work);
 	kfree(xtbl);
@@ -2408,13 +2425,11 @@ static void popt_xtbl_death_work(struct work_struct *work)
 static void popt_fib_unlock(struct fib_xid_table *xtbl, void *parg)
 {
 	write_unlock(&xtbl_txtbl(xtbl)->writers_lock);
-	printk(KERN_ALERT "Inside unlock\n");
 }
 
 static struct fib_xid *popt_fxid_find_rcu(struct fib_xid_table *xtbl,
 					  const u8 *xid)
 {
-	printk(KERN_ALERT "Inside Rcu\n");	
 	struct popt_fib_xid_table *txtbl = xtbl_txtbl(xtbl);
 	XID addr = xid_XID(xid);
 	struct fib_xid* ret = (struct fib_xid*)poptrie160_rib_lookup(txtbl , addr);
@@ -2425,7 +2440,6 @@ static struct fib_xid *popt_fxid_find_rcu(struct fib_xid_table *xtbl,
 static struct fib_xid *popt_fxid_find_lock(void *parg,
 	struct fib_xid_table *xtbl, const u8 *xid)
 {
-	printk(KERN_ALERT "Fxid_find_lock\n");
 	return popt_fxid_find_rcu(xtbl,xid);
 }
 
@@ -2436,7 +2450,6 @@ static int popt_iterate_xids(struct fib_xid_table *xtbl,
 						    const void *arg),
 			     const void *arg)
 {
-	printk(KERN_ALERT "Inside iterate Xid's\n");
 	struct popt_fib_xid_table *txtbl = xtbl_txtbl(xtbl);
 	int rc = 0;
 
@@ -2463,22 +2476,19 @@ out:
 static int popt_fxid_add_locked(void *parg, struct fib_xid_table *xtbl,
 				struct fib_xid *fxid)
 {
-	printk(KERN_ALERT "Inside add locked\n");	
 	struct popt_fib_xid_table *txtbl = xtbl_txtbl(xtbl);
 	int len_in_bits = (fxid->fx_entry_type);
-	printk("Length %d",len_in_bits);
 	XID addr = xid_XID(fxid->fx_xid);	
-	int ret = poptrie160_route_add(txtbl, addr, len_in_bits, (void*)fxid);
-	printk("Return Value %d", ret);
-	
-	if(ret==0) atomic_inc(&xtbl->fxt_count);
+	int ret = poptrie160_route_add(txtbl, addr, len_in_bits, (void *)fxid);
+
+	if (ret == 0)
+		atomic_inc(&xtbl->fxt_count);
 	return ret;
 }
 
 static int popt_fxid_add(struct fib_xid_table *xtbl, struct fib_xid *fxid)
 {	
 	int rc;
-	printk(KERN_ALERT "Inside add function\n");
 	write_lock(&xtbl_txtbl(xtbl)->writers_lock);
 	rc = popt_fxid_add_locked(NULL, xtbl, fxid);
 	write_unlock(&xtbl_txtbl(xtbl)->writers_lock);
@@ -2490,16 +2500,10 @@ static int popt_fxid_add(struct fib_xid_table *xtbl, struct fib_xid *fxid)
 static void popt_fxid_rm_locked(void *parg, struct fib_xid_table *xtbl,
 				struct fib_xid *fxid)
 {
-	printk(KERN_ALERT "Inside rm locked\n");
 	struct popt_fib_xid_table *txtbl = xtbl_txtbl(xtbl);
 	XID addr = xid_XID(fxid->fx_xid);
-	printk("addr1 : %d\n",addr.prefix1);
-	printk("addr2 : %d\n",addr.prefix2);
-	printk("length : %d\n",fxid->fx_entry_type);
 	int ret; 
-	if(NULL!= poptrie160_lookup(txtbl,addr))printk("Before deletion");
 	ret = poptrie160_route_del(txtbl , addr , fxid->fx_entry_type);
-	if(NULL== poptrie160_lookup(txtbl,addr))printk("After deletion");
 
 	if(ret==0) {
 		int i;
@@ -2514,12 +2518,10 @@ static void popt_fxid_rm_locked(void *parg, struct fib_xid_table *xtbl,
 		}
 		atomic_dec(&xtbl->fxt_count);
 		}
-	printk(KERN_ALERT "return value in rm : %d\n",ret);
 }
 
 static void popt_fxid_rm(struct fib_xid_table *xtbl, struct fib_xid *fxid)
 {
-	printk(KERN_ALERT "Inside rm\n");
 	write_lock(&xtbl_txtbl(xtbl)->writers_lock);
 	popt_fxid_rm_locked(NULL, xtbl, fxid);
 	write_unlock(&xtbl_txtbl(xtbl)->writers_lock);
@@ -2530,7 +2532,6 @@ static void popt_fxid_rm(struct fib_xid_table *xtbl, struct fib_xid *fxid)
  */
 static struct fib_xid *popt_xid_rm(struct fib_xid_table *xtbl, const u8 *xid)
 {
-	printk(KERN_ALERT "Inside Popt_xid_rm\n"); 	
 	return NULL;
 }
 
@@ -2538,7 +2539,6 @@ static void popt_fxid_replace_locked(struct fib_xid_table *xtbl,
 				     struct fib_xid *old_fxid,
 				     struct fib_xid *new_fxid)
 {
-	printk(KERN_ALERT "Inside replace\n");
 	//Replacement by deleting the previous entry and adding the new 
 	struct popt_fib_xid_table *txtbl = xtbl_txtbl(xtbl);
 	XID addr_old = xid_XID(old_fxid->fx_xid);
@@ -2559,22 +2559,24 @@ bool match_xids(const u8 *xid1, const u8 *xid2){
 
 
 struct fib_xid *
-poptrie160_exact_lookup(struct popt_fib_xid_table *poptrie, const u8 *xid, u8 prefix_len){
+poptrie160_exact_lookup(struct popt_fib_xid_table *poptrie, const u8 *xid,
+			u8 prefix_len)
+{
+	struct fib_xid *temp;
 	int i;
-	printk("printing n %d\n",poptrie->fib.n);
-	for(i = 1; i< poptrie->fib.n ;i++){
-		if(poptrie->fib.valid[i]){
-			struct fib_xid *temp = (struct fib_xid*)poptrie->fib.entries[i];
-			printk(KERN_ALERT "temp fxid : %d\n",temp);
-			if(match_xids(temp->fx_xid,xid) && temp->fx_entry_type==prefix_len)
-				{
-					printk(KERN_ALERT "match found");				
-					return temp;
-				}
+
+	for (i = 1; i < poptrie->fib.n; i++) {
+		if (poptrie->fib.valid[i]) {
+			temp = (struct fib_xid *)poptrie->fib.entries[i];
+			if (match_xids(temp->fx_xid, xid) &&
+			    temp->fx_entry_type == prefix_len)
+				return temp;
 		}
 	}
+
 	return NULL;
 }
+
 int popt_fib_newroute_lock(struct fib_xid *new_fxid,
 			   struct fib_xid_table *xtbl,
 			   struct xia_fib_config *cfg, int *padded)
@@ -2588,16 +2590,10 @@ int popt_fib_newroute_lock(struct fib_xid *new_fxid,
 		*padded = 0;
 
 	/* Acquire lock and do exact matching to find @cur_fxid. */
-	printk(KERN_ALERT "Phase1\n");
 	id = cfg->xfc_dst->xid_id;
 	XID addr = xid_XID(id);
-	printk(KERN_ALERT "Phase2\n");
-	//cur_fxid = (struct fib_xid*)poptrie160_lookup(txtbl , addr);
-	cur_fxid = poptrie160_exact_lookup(txtbl , id , new_fxid->fx_entry_type);
-	
-	printk(KERN_ALERT "curr_fxid : %d",cur_fxid);
+	cur_fxid = poptrie160_exact_lookup(txtbl, id, new_fxid->fx_entry_type);
 	if (cur_fxid) {
-		printk(KERN_ALERT "Entered main loop in newroute\n");
 		if ((cfg->xfc_nlflags & NLM_F_EXCL) ||
 		    !(cfg->xfc_nlflags & NLM_F_REPLACE))
 			return -EEXIST;
@@ -2605,7 +2601,6 @@ int popt_fib_newroute_lock(struct fib_xid *new_fxid,
 		if (cur_fxid->fx_table_id != new_fxid->fx_table_id)
 			return -EINVAL;
 
-		printk(KERN_ALERT "Will execute replace function\n");
 		popt_fxid_replace_locked(xtbl, cur_fxid, new_fxid);
 		fxid_free(xtbl, cur_fxid);
 		return 0;
@@ -2615,7 +2610,6 @@ int popt_fib_newroute_lock(struct fib_xid *new_fxid,
 		return -ENOENT;
 
 	/* Add new entry. */
-	printk(KERN_ALERT "Will Add entry now\n");
 	BUG_ON(popt_fxid_add_locked(NULL, xtbl, new_fxid));
 
 	if (padded)
@@ -2635,7 +2629,6 @@ static int popt_fib_newroute(struct fib_xid *new_fxid,
 			     struct fib_xid_table *xtbl,
 			     struct xia_fib_config *cfg, int *padded)
 {
-	printk(KERN_ALERT "Inside Newroute\n");	
 	int rc = popt_fib_newroute_lock(new_fxid, xtbl, cfg, padded);
 	popt_fib_unlock(xtbl, NULL);
 	return rc;
@@ -2658,11 +2651,9 @@ int popt_fib_delroute(struct xip_ppal_ctx *ctx, struct fib_xid_table *xtbl,
 		return -EINVAL;
 
 	/* Do exact matching to find @fxid. */
-	printk(KERN_ALERT "Before lookup in delroute\n");
 	//fxid  = (struct fib_xid*)poptrie160_rib_lookup(txtbl , addr);
 	id  = cfg->xfc_dst->xid_id;
 	fxid  = (struct fib_xid*)poptrie160_exact_lookup(txtbl , id , *(u8 *)cfg->xfc_protoinfo);
-	printk(KERN_ALERT "FXID : %d",fxid);
 	if (!fxid) {
 		rc = -ENOENT;
 		goto unlock;
@@ -2672,9 +2663,7 @@ int popt_fib_delroute(struct xip_ppal_ctx *ctx, struct fib_xid_table *xtbl,
 		goto unlock;
 	}
 	
-	printk("Rm lock Started");
 	popt_fxid_rm_locked(NULL, xtbl, fxid);
-	printk("Rm lock Finished");
 	popt_fib_unlock(xtbl, NULL);
 	fxid_free(xtbl, fxid);
 	return 0;
@@ -2690,25 +2679,17 @@ static int popt_xtbl_dump_rcu(struct fib_xid_table *xtbl,
 			      struct xip_ppal_ctx *ctx, struct sk_buff *skb,
 			      struct netlink_callback *cb)
 {	
-	printk("Inside Dump");	
 	struct popt_fib_xid_table *txtbl = xtbl_txtbl(xtbl);
-	printk("Inside Dump1");
 	int rc = 0;
 	read_lock(&txtbl->writers_lock);
-	printk("Inside Dump2");
 	int no_of_entries = txtbl->fib.n;
-	printk("no of entries %d",no_of_entries);
 	int i;
-	printk("Inside Dump3");
 	for(i =1 ; i<no_of_entries ; i++)
 	{
 		if(txtbl->fib.valid[i]){	
 			struct fib_xid *fxid = (struct fib_xid*)txtbl->fib.entries[i];
-			printk("Inside Dump4");
-			printk("tableid %d",fxid->fx_table_id);
 			rc = xtbl->all_eops[fxid->fx_table_id].
 					dump_fxid(fxid, xtbl, ctx, skb, cb);
-			printk("After rc calculation %d",rc);
 				if (rc < 0)
 					goto out;
 		}
@@ -2720,7 +2701,6 @@ out:
 
 struct fib_xid *popt_fib_get_pred_locked(struct fib_xid_table *xtbl, struct fib_xid *fxid)
 {
-	printk(KERN_ALERT "Inside pred function");
 	struct popt_fib_xid_table *txtbl = xtbl_txtbl(xtbl);	
 	read_lock(&txtbl->writers_lock);
 	XID addr = xid_XID(fxid->fx_xid);
@@ -2738,7 +2718,6 @@ int popt_fib_mrd_dump(struct fib_xid *fxid, struct fib_xid_table *xtbl,
 		      struct xip_ppal_ctx *ctx, struct sk_buff *skb,
 		      struct netlink_callback *cb)
 {
-	printk(KERN_ALERT "Inside mrd_dump");	
 	struct nlmsghdr *nlh;
 	u32 portid = NETLINK_CB(cb->skb).portid;
 	u32 seq = cb->nlh->nlmsg_seq;
