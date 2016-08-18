@@ -2403,7 +2403,7 @@ static struct fib_xid *popt_fxid_find_rcu(struct fib_xid_table *xtbl,
 {
 	struct popt_fib_xid_table *txtbl = xtbl_txtbl(xtbl);
 	XID addr = xid_XID(xid);
-	struct fib_xid* ret = (struct fib_xid*)poptrie160_rib_lookup(txtbl , addr);
+	struct fib_xid* ret = (struct fib_xid*)poptrie160_lookup(txtbl , addr);
 	return ret;
 }
 
@@ -2622,7 +2622,6 @@ int popt_fib_delroute(struct xip_ppal_ctx *ctx, struct fib_xid_table *xtbl,
 		return -EINVAL;
 
 	/* Do exact matching to find @fxid. */
-	//fxid  = (struct fib_xid*)poptrie160_rib_lookup(txtbl , addr);
 	id  = cfg->xfc_dst->xid_id;
 	fxid  = (struct fib_xid*)poptrie160_exact_lookup(txtbl , id , *(u8 *)cfg->xfc_protoinfo);
 	if (!fxid) {
