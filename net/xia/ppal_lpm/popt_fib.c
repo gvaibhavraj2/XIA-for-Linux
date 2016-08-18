@@ -2498,12 +2498,16 @@ static void popt_fxid_rm(struct fib_xid_table *xtbl, struct fib_xid *fxid)
 	write_unlock(&xtbl_txtbl(xtbl)->writers_lock);
 }
 
-/* tree_xid_rm() removes the entry with the longest matching prefix,
+/* popt_xid_rm() removes the entry with the longest matching prefix,
  * since we have no prefix information for @xid.
  */
 static struct fib_xid *popt_xid_rm(struct fib_xid_table *xtbl, const u8 *xid)
 {
-	return NULL;
+	struct popt_fib_xid_table *txtbl = xtbl_txtbl(xtbl);
+	XID addr = xid_XID(xid);	
+	struct fib_xid *fxid = 	poptrie160_lookup(txtbl, addr);
+	popt_fxid_rm(xtbl, fxid);
+	return fxid;
 }
 
 static void popt_fxid_replace_locked(struct fib_xid_table *xtbl,
