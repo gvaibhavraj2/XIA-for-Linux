@@ -540,182 +540,182 @@ _update_part(struct popt_fib_xid_table *poptrie, struct radix_node160 *tnode, in
 	}
 
 	while ( vcomp && stack->idx >= 0 ) {
-	/* Perform vertical compresion */
-	if ( stack->inode < 0 ) {
-	    if ( stack->nexthop != sleaf ) {
-		/* Compression ends here */
-		vcomp = 0;
-		for ( i = 0; i < (1 << (stack->width - 6)); i++ ) {
-		    VEC_INIT(cnodes[i].vector);
-		    VEC_INIT(cnodes[i].leafvec);
-		    if ( i == NODEINDEX(stack->idx) ) {
-		        if ( 0 == BITINDEX(stack->idx) ) {
-		            base0 = get_new_leaf(poptrie,1);
-		            if ( base0 < 0 ) {
-		                return -1;
-		            }
-		            poptrie->leaves[base0] = sleaf;
-		            poptrie->leaves[base0 + 1] = stack->nexthop;
-		            VEC_SET(cnodes[i].leafvec, 0);
-		            VEC_SET(cnodes[i].leafvec, 1);
-		        } else if ( ((1 << 6) - 1) == BITINDEX(stack->idx) ) {
-		            base0 = get_new_leaf(poptrie,1);
-		            if ( base0 < 0 ) {
-		                return -1;
-		            }
-		            poptrie->leaves[base0] = stack->nexthop;
-		            poptrie->leaves[base0 + 1] = sleaf;
-		            VEC_SET(cnodes[i].leafvec, 0);
-		            VEC_SET(cnodes[i].leafvec, BITINDEX(stack->idx));
-		        } else {
-		            base0 = get_new_leaf(poptrie,2);
-		            if ( base0 < 0 ) {
-		                return -1;
-		            }
-		            poptrie->leaves[base0] = stack->nexthop;
-		            poptrie->leaves[base0 + 1] = sleaf;
-		            poptrie->leaves[base0 + 2] = stack->nexthop;
-		            VEC_SET(cnodes[i].leafvec, 0);
-		            VEC_SET(cnodes[i].leafvec, BITINDEX(stack->idx));
-		            VEC_SET(cnodes[i].leafvec,
-		                    BITINDEX(stack->idx) + 1);
-		        }
+		/* Perform vertical compresion */
+		if ( stack->inode < 0 ) {
+		    if ( stack->nexthop != sleaf ) {
+			/* Compression ends here */
+			vcomp = 0;
+			for ( i = 0; i < (1 << (stack->width - 6)); i++ ) {
+			    VEC_INIT(cnodes[i].vector);
+			    VEC_INIT(cnodes[i].leafvec);
+			    if ( i == NODEINDEX(stack->idx) ) {
+				if ( 0 == BITINDEX(stack->idx) ) {
+				    base0 = get_new_leaf(poptrie,1);
+				    if ( base0 < 0 ) {
+					return -1;
+				    }
+				    poptrie->leaves[base0] = sleaf;
+				    poptrie->leaves[base0 + 1] = stack->nexthop;
+				    VEC_SET(cnodes[i].leafvec, 0);
+				    VEC_SET(cnodes[i].leafvec, 1);
+				} else if ( ((1 << 6) - 1) == BITINDEX(stack->idx) ) {
+				    base0 = get_new_leaf(poptrie,1);
+				    if ( base0 < 0 ) {
+					return -1;
+				    }
+				    poptrie->leaves[base0] = stack->nexthop;
+				    poptrie->leaves[base0 + 1] = sleaf;
+				    VEC_SET(cnodes[i].leafvec, 0);
+				    VEC_SET(cnodes[i].leafvec, BITINDEX(stack->idx));
+				} else {
+				    base0 = get_new_leaf(poptrie,2);
+				    if ( base0 < 0 ) {
+					return -1;
+				    }
+				    poptrie->leaves[base0] = stack->nexthop;
+				    poptrie->leaves[base0 + 1] = sleaf;
+				    poptrie->leaves[base0 + 2] = stack->nexthop;
+				    VEC_SET(cnodes[i].leafvec, 0);
+				    VEC_SET(cnodes[i].leafvec, BITINDEX(stack->idx));
+				    VEC_SET(cnodes[i].leafvec,
+					    BITINDEX(stack->idx) + 1);
+				}
+			    } else {
+				base0 = get_new_leaf(poptrie,0);
+				if ( base0 < 0 ) {
+				    return -1;
+				}
+				poptrie->leaves[base0] = stack->nexthop;
+				VEC_SET(cnodes[i].leafvec, 0);
+			    }
+			    cnodes[i].base0 = base0;
+			    cnodes[i].base1 = -1;
+			}
+		    }
+		} else {
+		    node = &poptrie->nodes[stack->inode + NODEINDEX(stack->idx)];
+		    vector = node->vector;
+		    if ( VEC_BT(node->vector, BITINDEX(stack->idx)) ) {
+			/* Internal node to leaf */
+			VEC_CLEAR(vector, BITINDEX(stack->idx));
+			VEC_INIT(leafvec);
+			n = 0;
+			prev = (u64)-1;
+			for ( i = 0; i < (1 << 6); i++ ) {
+			    if ( !VEC_BT(vector, i) ) {
+				if ( i == BITINDEX(stack->idx) ) {
+				    if ( sleaf != prev ) {
+					leaves[n] = sleaf;
+					VEC_SET(leafvec, i);
+					n++;
+				    }
+				    prev = sleaf;
+				} else {
+				    p = POPCNT_LS(node->leafvec, i);
+				    if ( poptrie->leaves[node->base0 + p - 1]
+					 != prev ) {
+					leaves[n]
+					    = poptrie->leaves[node->base0 + p - 1];
+					VEC_SET(leafvec, i);
+					n++;
+				    }
+				    prev = poptrie->leaves[node->base0 + p - 1];
+				}
+			    }
+			}
+
+			if ( 1 != n || 0 != POPCNT(vector) || (stack - 1)->idx < 0 ) {
+			    vcomp = 0;
+			    base0 = get_new_leaf(poptrie,bsr(n - 1) + 1);
+			    if ( base0 < 0 ) {
+				return -1;
+			    }
+			    memcpy(poptrie->leaves + base0, leaves,
+				   sizeof(poptrie_leaf_t) * n);
+
+			    p = POPCNT(vector);
+			    n = p;
+			    if ( n > 0 ) {
+				base1 = get_new_node(poptrie,bsr(n - 1) + 1);
+				if ( base1 < 0 ) {
+				    return -1;
+				}
+			    } else {
+				base1 = -1;
+			    }
+
+			    /* Copy all */
+			    n = 0;
+			    for ( i = 0; i < (1 << 6); i++ ) {
+				if ( VEC_BT(vector, i) ) {
+				    p = POPCNT_LS(node->vector, i);
+				    p = (p - 1);
+				    memcpy(&poptrie->nodes[base1 + n],
+					   &poptrie->nodes[node->base1 + p],
+					   sizeof(poptrie_node_t));
+				    n += 1;
+				}
+			    }
+
+			    memcpy(cnodes, poptrie->nodes + stack->inode,
+				   sizeof(poptrie_node_t) << (stack->width - 6));
+			    cnodes[NODEINDEX(stack->idx)].vector = vector;
+			    cnodes[NODEINDEX(stack->idx)].leafvec = leafvec;
+			    cnodes[NODEINDEX(stack->idx)].base0 = base0;
+			    cnodes[NODEINDEX(stack->idx)].base1 = base1;
+			}
 		    } else {
-		        base0 = get_new_leaf(poptrie,0);
-		        if ( base0 < 0 ) {
-		            return -1;
-		        }
-		        poptrie->leaves[base0] = stack->nexthop;
-		        VEC_SET(cnodes[i].leafvec, 0);
-		    }
-		    cnodes[i].base0 = base0;
-		    cnodes[i].base1 = -1;
-		}
-	    }
-	} else {
-	    node = &poptrie->nodes[stack->inode + NODEINDEX(stack->idx)];
-	    vector = node->vector;
-	    if ( VEC_BT(node->vector, BITINDEX(stack->idx)) ) {
-		/* Internal node to leaf */
-		VEC_CLEAR(vector, BITINDEX(stack->idx));
-		VEC_INIT(leafvec);
-		n = 0;
-		prev = (u64)-1;
-		for ( i = 0; i < (1 << 6); i++ ) {
-		    if ( !VEC_BT(vector, i) ) {
-		        if ( i == BITINDEX(stack->idx) ) {
-		            if ( sleaf != prev ) {
-		                leaves[n] = sleaf;
-		                VEC_SET(leafvec, i);
-		                n++;
-		            }
-		            prev = sleaf;
-		        } else {
-		            p = POPCNT_LS(node->leafvec, i);
-		            if ( poptrie->leaves[node->base0 + p - 1]
-		                 != prev ) {
-		                leaves[n]
-		                    = poptrie->leaves[node->base0 + p - 1];
-		                VEC_SET(leafvec, i);
-		                n++;
-		            }
-		            prev = poptrie->leaves[node->base0 + p - 1];
-		        }
-		    }
-		}
+			/* Leaf node is changed */
+			VEC_INIT(leafvec);
+			n = 0;
+			prev = (u64)-1;
+			for ( i = 0; i < (1 << 6); i++ ) {
+			    if ( !VEC_BT(vector, i) ) {
+				if ( i == BITINDEX(stack->idx) ) {
+				    if ( sleaf != prev ) {
+					leaves[n] = sleaf;
+					VEC_SET(leafvec, i);
+					n++;
+				    }
+				    prev = sleaf;
+				} else {
+				    p = POPCNT_LS(node->leafvec, i);
+				    if ( poptrie->leaves[node->base0 + p - 1]
+					 != prev ) {
+					leaves[n]
+					    = poptrie->leaves[node->base0 + p - 1];
+					VEC_SET(leafvec, i);
+					n++;
+				    }
+				    prev =  poptrie->leaves[node->base0 + p - 1];
+				}
+			    }
+			}
 
-		if ( 1 != n || 0 != POPCNT(vector) || (stack - 1)->idx < 0 ) {
-		    vcomp = 0;
-		    base0 = get_new_leaf(poptrie,bsr(n - 1) + 1);
-		    if ( base0 < 0 ) {
-		        return -1;
-		    }
-		    memcpy(poptrie->leaves + base0, leaves,
-		           sizeof(poptrie_leaf_t) * n);
+			if ( 1 != n || 0 != POPCNT(vector) || (stack - 1)->idx < 0 ) {
+			    vcomp = 0;
+			    if ( node->leafvec == leafvec ) {
+				/* Nothing has changed */
+				return 0;
+			    }
 
-		    p = POPCNT(vector);
-		    n = p;
-		    if ( n > 0 ) {
-		        base1 = get_new_node(poptrie,bsr(n - 1) + 1);
-		        if ( base1 < 0 ) {
-		            return -1;
-		        }
-		    } else {
-		        base1 = -1;
-		    }
+			    base0 = get_new_leaf(poptrie,bsr(n - 1) + 1);
+			    if ( base0 < 0 ) {
+				return -1;
+			    }
+			    memcpy(poptrie->leaves + base0, leaves,
+				   sizeof(poptrie_leaf_t) * n);
 
-		    /* Copy all */
-		    n = 0;
-		    for ( i = 0; i < (1 << 6); i++ ) {
-		        if ( VEC_BT(vector, i) ) {
-		            p = POPCNT_LS(node->vector, i);
-		            p = (p - 1);
-		            memcpy(&poptrie->nodes[base1 + n],
-		                   &poptrie->nodes[node->base1 + p],
-		                   sizeof(poptrie_node_t));
-		            n += 1;
-		        }
-		    }
-
-		    memcpy(cnodes, poptrie->nodes + stack->inode,
-		           sizeof(poptrie_node_t) << (stack->width - 6));
-		    cnodes[NODEINDEX(stack->idx)].vector = vector;
-		    cnodes[NODEINDEX(stack->idx)].leafvec = leafvec;
-		    cnodes[NODEINDEX(stack->idx)].base0 = base0;
-		    cnodes[NODEINDEX(stack->idx)].base1 = base1;
-		}
-	    } else {
-		/* Leaf node is changed */
-		VEC_INIT(leafvec);
-		n = 0;
-		prev = (u64)-1;
-		for ( i = 0; i < (1 << 6); i++ ) {
-		    if ( !VEC_BT(vector, i) ) {
-		        if ( i == BITINDEX(stack->idx) ) {
-		            if ( sleaf != prev ) {
-		                leaves[n] = sleaf;
-		                VEC_SET(leafvec, i);
-		                n++;
-		            }
-		            prev = sleaf;
-		        } else {
-		            p = POPCNT_LS(node->leafvec, i);
-		            if ( poptrie->leaves[node->base0 + p - 1]
-		                 != prev ) {
-		                leaves[n]
-		                    = poptrie->leaves[node->base0 + p - 1];
-		                VEC_SET(leafvec, i);
-		                n++;
-		            }
-		            prev =  poptrie->leaves[node->base0 + p - 1];
-		        }
+			    memcpy(cnodes, poptrie->nodes + stack->inode,
+				   sizeof(poptrie_node_t) << (stack->width - 6));
+			    cnodes[NODEINDEX(stack->idx)].vector = vector;
+			    cnodes[NODEINDEX(stack->idx)].leafvec = leafvec;
+			    cnodes[NODEINDEX(stack->idx)].base0 = base0;
+			}
 		    }
 		}
 
-		if ( 1 != n || 0 != POPCNT(vector) || (stack - 1)->idx < 0 ) {
-		    vcomp = 0;
-		    if ( node->leafvec == leafvec ) {
-		        /* Nothing has changed */
-		        return 0;
-		    }
-
-		    base0 = get_new_leaf(poptrie,bsr(n - 1) + 1);
-		    if ( base0 < 0 ) {
-		        return -1;
-		    }
-		    memcpy(poptrie->leaves + base0, leaves,
-		           sizeof(poptrie_leaf_t) * n);
-
-		    memcpy(cnodes, poptrie->nodes + stack->inode,
-		           sizeof(poptrie_node_t) << (stack->width - 6));
-		    cnodes[NODEINDEX(stack->idx)].vector = vector;
-		    cnodes[NODEINDEX(stack->idx)].leafvec = leafvec;
-		    cnodes[NODEINDEX(stack->idx)].base0 = base0;
-		}
-	    }
-	}
-
-	stack--;
+		stack--;
 	}
 
 	while ( stack->idx >= 0 ) {
@@ -970,7 +970,6 @@ _descend_and_update(struct popt_fib_xid_table *poptrie, struct radix_node160 *tn
 		idx = INDEX(prefix, depth, width);
 
 		if ( inode < 0 ) {
-		    //return _update_part(poptrie, tnode, inode, stack, root, 0);
 		    /* The root of the next block */
 		    ntnode = _next_block(tnode, idx, 0, width);
 		    if ( NULL == ntnode ) {
@@ -2388,6 +2387,8 @@ static void popt_xtbl_death_work(struct work_struct *work)
 {
 	struct fib_xid_table *xtbl = container_of(work, struct fib_xid_table,
 		fxt_death_work);
+	struct popt_fib_xid_table * poptrie = xtbl_txtbl(xtbl);
+	poptrie160_release(poptrie);
 	kfree(xtbl);
 }
 
