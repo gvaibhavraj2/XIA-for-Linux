@@ -2268,7 +2268,6 @@ static int popt_xtbl_init(struct xip_ppal_ctx *ctx, struct net *net,
 {
 	struct fib_xid_table *new_xtbl;
 	struct popt_fib_xid_table *txtbl;
-	int ret;
 	int i;
 
 	if (ctx->xpc_xtbl)
@@ -2437,8 +2436,6 @@ static int popt_iterate_xids(struct fib_xid_table *xtbl,
 	{	
 		if(txtbl->fib.valid[i])	{	
 			struct fib_xid* cur= (struct fib_xid*)txtbl->fib.entries[i];
-	
-			XID addr = xid_XID(cur);
 			rc = locked_callback(xtbl, cur, arg);
 			if (rc)
 				goto out;
@@ -2523,7 +2520,6 @@ static void popt_fxid_replace_locked(struct fib_xid_table *xtbl,
 {
 	struct popt_fib_xid_table *txtbl = xtbl_txtbl(xtbl);
 	XID addr_old = xid_XID(old_fxid->fx_xid);
-	XID addr_new = xid_XID(new_fxid->fx_xid);
 	poptrie160_route_change(txtbl , addr_old , old_fxid->fx_entry_type, (void*)new_fxid);
 	
 }
@@ -2572,7 +2568,6 @@ int popt_fib_newroute_lock(struct fib_xid *new_fxid,
 
 	/* Acquire lock and do exact matching to find @cur_fxid. */
 	id = cfg->xfc_dst->xid_id;
-	XID addr = xid_XID(id);
 	write_lock(&txtbl->writers_lock);
 	cur_fxid = poptrie160_exact_lookup(txtbl, id, new_fxid->fx_entry_type);
 	if (cur_fxid) {
@@ -2625,7 +2620,6 @@ int popt_fib_delroute(struct xip_ppal_ctx *ctx, struct fib_xid_table *xtbl,
 {
 	
 	struct popt_fib_xid_table *txtbl = xtbl_txtbl(xtbl);
-	XID addr = xid_XID(cfg->xfc_dst->xid_id);
 	struct fib_xid *fxid;
 	int rc;
 	const u8 *id;
