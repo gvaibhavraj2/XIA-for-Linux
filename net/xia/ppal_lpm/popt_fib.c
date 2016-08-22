@@ -2404,12 +2404,17 @@ static void popt_fib_unlock(struct fib_xid_table *xtbl, void *parg)
 	write_unlock(&xtbl_txtbl(xtbl)->writers_lock);
 }
 
+void * popt_fxid_find(struct popt_fib_xid_table *poptrie, XID addr){
+	write_lock(&poptrie->writers_lock);
+	return poptrie160_lookup(poptrie, addr);
+}
+
 static struct fib_xid *popt_fxid_find_rcu(struct fib_xid_table *xtbl,
 					  const u8 *xid)
 {
 	struct popt_fib_xid_table *txtbl = xtbl_txtbl(xtbl);
 	XID addr = xid_XID(xid);
-	struct fib_xid* ret = (struct fib_xid*)poptrie160_lookup(txtbl , addr);
+	struct fib_xid* ret = (struct fib_xid*)popt_fxid_find(txtbl , addr);
 	return ret;
 }
 
@@ -2509,8 +2514,9 @@ static struct fib_xid *popt_xid_rm(struct fib_xid_table *xtbl, const u8 *xid)
 {
 	struct popt_fib_xid_table *txtbl = xtbl_txtbl(xtbl);
 	XID addr = xid_XID(xid);	
-	struct fib_xid *fxid = 	poptrie160_lookup(txtbl, addr);
-	popt_fxid_rm(xtbl, fxid);
+	struct fib_xid *fxid = 	(struct fib_xid*)popt_fxid_find(txtbl, addr);
+	popt_fxid_rm_locked(NULL, xtbl, fxid);
+	popt_fib_unlock(xtbl,NULL);
 	return fxid;
 }
 
